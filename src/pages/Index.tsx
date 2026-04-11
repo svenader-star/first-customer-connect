@@ -7,6 +7,8 @@ import { OutreachTemplatesPanel } from "@/components/OutreachTemplatesPanel";
 import { useSpaces } from "@/hooks/useSpaces";
 import { useSpaceSetup } from "@/hooks/useSpaceSetup";
 import { useLeads } from "@/hooks/useLeads";
+import { useOutreachSettings } from "@/hooks/useOutreachSettings";
+import { useOutreachTemplates } from "@/hooks/useOutreachTemplates";
 
 type Tab = "setup" | "leads" | "outreach";
 
@@ -27,6 +29,8 @@ export default function Index() {
 
   const { form: setupForm, updateForm: setSetupForm } = useSpaceSetup(activeSpaceId);
   const { leads, saveExternalLeads, addEmptyLead, updateLead } = useLeads(activeSpaceId);
+  const { settings: outreachSettings, updateSettings: setOutreachSettings } = useOutreachSettings(activeSpaceId);
+  const { templates } = useOutreachTemplates();
 
   const handleFoundLeads = (rawLeads: any[]) => {
     saveExternalLeads(rawLeads);
@@ -93,9 +97,17 @@ export default function Index() {
                 <SetupScreen onFindLeads={handleFoundLeads} formState={setupForm} onFormChange={setSetupForm} />
               )}
               {activeTab === "leads" && (
-                <LeadsScreen leads={leads} onUpdateLead={updateLead} onAddLead={addEmptyLead} />
+                <LeadsScreen
+                  leads={leads}
+                  onUpdateLead={updateLead}
+                  onAddLead={addEmptyLead}
+                  outreachSettings={outreachSettings}
+                  templates={templates}
+                />
               )}
-              {activeTab === "outreach" && <OutreachScreen />}
+              {activeTab === "outreach" && (
+                <OutreachScreen settings={outreachSettings} onSettingsChange={setOutreachSettings} />
+              )}
             </>
           )}
         </div>
