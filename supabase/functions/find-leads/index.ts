@@ -110,9 +110,50 @@ Deno.serve(async (req) => {
 
     if (!Array.isArray(leads)) throw new Error("Anthropic did not return a JSON array");
 
-    console.log(`Extracted ${leads.length} leads`);
+    console.log(`Extracted ${leads.length} leads, now searching for LinkedIn profiles...`);
 
-    return new Response(JSON.stringify({ success: true, leads }), {
+    // Second round: search LinkedIn for each person
+    const linkedinSearches = leads.map(async (lead: any) => {
+      if (lead.linkedin && lead.linkedin.includes("linkedin.com/in")) return lead;
+      const person = (lead.person || "").trim();
+      const company = (lead.company || "").trim();
+      if (!person) return lead;
+
+      try {
+        const query = `${person} ${company} site:linkedin.com/in`;
+        const res = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: TAVILY_API_KEY,
+            query,
+            search_depth: "basic",
+            max_results: 3,
+          }),
+        });
+        if (!res.ok) {
+          console.warn(`LinkedIn search failed for ${person}: ${res.status}`);
+          return lead;
+        }
+        const data = await res.json();
+        const linkedinResult = (data.results || []).find((r: any) =>
+          r.url && r.url.includes("linkedin.com/in/")
+        );
+        if (linkedinResult) {
+          lead.linkedin = linkedinResult.url;
+          console.log(`Found LinkedIn for ${person}: ${linkedinResult.url}`);
+        }
+      } catch (e) {
+        console.warn(`LinkedIn search error for ${person}:`, e);
+      }
+      return lead;
+    });
+
+    const enrichedLeads = await Promise.all(linkedinSearches);
+
+    console.log(`Returning ${enrichedLeads.length} enriched leads`);
+
+    return new Response(JSON.stringify({ success: true, leads: enrichedLeads }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
