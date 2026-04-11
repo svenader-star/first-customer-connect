@@ -87,14 +87,14 @@ export function LeadsScreen() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">Leads</h2>
         <Button size="sm">+ Add Leads</Button>
       </div>
 
       <div className="border border-border rounded-lg overflow-x-auto">
-        <Table>
+        <Table className="min-w-[1400px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">#ID</TableHead>
