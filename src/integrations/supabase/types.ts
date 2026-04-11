@@ -18,10 +18,15 @@ export type Database = {
         Row: {
           company: string
           email: string
+          email_draft_body: string
+          email_draft_subject: string
           email_sent: boolean
+          followup_draft_body: string
+          followup_draft_subject: string
           followup_sent: boolean
           id: string
           linkedin: string
+          linkedin_draft_body: string
           linkedin_sent: boolean
           person: string
           source: string
@@ -32,10 +37,15 @@ export type Database = {
         Insert: {
           company?: string
           email?: string
+          email_draft_body?: string
+          email_draft_subject?: string
           email_sent?: boolean
+          followup_draft_body?: string
+          followup_draft_subject?: string
           followup_sent?: boolean
           id?: string
           linkedin?: string
+          linkedin_draft_body?: string
           linkedin_sent?: boolean
           person?: string
           source?: string
@@ -46,10 +56,15 @@ export type Database = {
         Update: {
           company?: string
           email?: string
+          email_draft_body?: string
+          email_draft_subject?: string
           email_sent?: boolean
+          followup_draft_body?: string
+          followup_draft_subject?: string
           followup_sent?: boolean
           id?: string
           linkedin?: string
+          linkedin_draft_body?: string
           linkedin_sent?: boolean
           person?: string
           source?: string
