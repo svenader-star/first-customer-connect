@@ -177,8 +177,13 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      await onAppendLeads(data.leads);
-      toast.success(`Found ${data.leads.length} new leads!`);
+      if (!data.leads || data.leads.length === 0) {
+        setNoResultsBanner(true);
+        setTimeout(() => setNoResultsBanner(false), 4000);
+      } else {
+        await onAppendLeads(data.leads);
+        toast.success(`Found ${data.leads.length} new leads!`);
+      }
     } catch (err: any) {
       console.error("Add leads error:", err);
       toast.error(err.message || "Failed to find new leads");
