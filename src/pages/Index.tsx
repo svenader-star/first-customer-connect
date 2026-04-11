@@ -65,8 +65,8 @@ export default function Index() {
             <OutreachTemplatesPanel onClose={() => setShowTemplates(false)} />
           ) : (
             <>
-              {activeTab === "setup" && <SetupScreen onFindLeads={navigateToLeads} />}
-              {activeTab === "leads" && <LeadsScreen />}
+              {activeTab === "setup" && <SetupScreen onFindLeads={handleFoundLeads} />}
+              {activeTab === "leads" && <LeadsScreen externalLeads={foundLeads} />}
               {activeTab === "outreach" && <OutreachScreen />}
             </>
           )}
