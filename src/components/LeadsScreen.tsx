@@ -20,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { DbLead } from "@/hooks/useLeads";
 import type { OutreachSettings } from "@/hooks/useOutreachSettings";
