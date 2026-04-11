@@ -87,7 +87,7 @@ export function LeadsScreen() {
   };
 
   return (
-    <div className="p-6 overflow-hidden">
+    <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">Leads</h2>
         <Button size="sm">+ Add Leads</Button>
