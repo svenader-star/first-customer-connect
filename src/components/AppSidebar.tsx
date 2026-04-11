@@ -76,7 +76,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
-        {spaces.map((space, i) => (
+        {(spaces || []).map((space, i) => (
           <div key={space.id} className="group relative flex items-center">
             {editingIndex === i ? (
               <input
