@@ -47,6 +47,7 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
           exampleCompanies: [formState.company1, formState.company2, formState.company3],
           role: formState.role,
           geography: formState.geo,
+          companyType: formState.companyType || "startups",
         },
       });
 
