@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Copy, Loader2, Sparkles, Plus, ChevronDown, Search, UserPlus } from "lucide-react";
+import { Copy, Loader2, Sparkles, Plus, ChevronDown, Search, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -89,17 +89,19 @@ interface LeadsScreenProps {
   leads: DbLead[];
   onUpdateLead: (id: string, field: keyof DbLead, value: string | boolean) => void;
   onAppendLeads: (leads: any[]) => Promise<void>;
+  onDeleteLeads: (ids: string[]) => Promise<void>;
   setupForm: SetupFormState;
   outreachSettings: OutreachSettings;
   templates: OutreachTemplate[];
 }
 
-export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
+export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
   const [findingLeads, setFindingLeads] = useState(false);
   const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
   const manualRowRef = useRef<HTMLTableRowElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
@@ -212,7 +214,22 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
   return (
     <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Leads</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Leads</h2>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                await onDeleteLeads(Array.from(selectedIds));
+                setSelectedIds(new Set());
+                toast.success(`Deleted ${selectedIds.size} lead(s)`);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.size})
+            </Button>
+          )}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" disabled={findingLeads}>
@@ -238,6 +255,14 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
         <Table className="min-w-[1400px]">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={leads.length > 0 && selectedIds.size === leads.length}
+                  onCheckedChange={(checked) => {
+                    setSelectedIds(checked ? new Set(leads.map((l) => l.id)) : new Set());
+                  }}
+                />
+              </TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Website</TableHead>
               <TableHead>Person</TableHead>
@@ -256,6 +281,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
           <TableBody>
             {manualRow && (
               <TableRow ref={manualRowRef} className="bg-muted/30">
+                <TableCell />
                 {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
                   <TableCell key={field}>
                     <Input
@@ -272,13 +298,25 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
             )}
             {leads.length === 0 && !manualRow ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
                   No leads yet. Use the Setup tab to find leads.
                 </TableCell>
               </TableRow>
             ) : (
               leads.map((l) => (
                 <TableRow key={l.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(l.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          checked ? next.add(l.id) : next.delete(l.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableCell>
                   {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
                     <TableCell
                       key={field}
