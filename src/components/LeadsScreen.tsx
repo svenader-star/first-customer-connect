@@ -298,7 +298,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
             )}
             {leads.length === 0 && !manualRow ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
                   No leads yet. Use the Setup tab to find leads.
                 </TableCell>
               </TableRow>
