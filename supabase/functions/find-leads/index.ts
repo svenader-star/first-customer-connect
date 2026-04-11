@@ -10,6 +10,7 @@ const BodySchema = z.object({
   exampleCompanies: z.array(z.string()).length(3),
   role: z.string().min(1),
   geography: z.string().min(1),
+  excludeCompanies: z.array(z.string()).optional().default([]),
 });
 
 async function tavilySearch(query: string, apiKey: string) {
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { icpDescription, exampleCompanies, role, geography } = parsed.data;
+    const { icpDescription, exampleCompanies, role, geography, excludeCompanies } = parsed.data;
 
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
     if (!TAVILY_API_KEY) throw new Error("TAVILY_API_KEY is not configured");
@@ -52,7 +53,6 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
-    // Step 1: Tavily searches
     const queries = [
       `${role} ${icpDescription} companies ${geography}`,
       `similar companies to ${exampleCompanies[0]} ${geography}`,
@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
 
     console.log(`Got ${combinedResults.length} total search results`);
 
-    // Step 2: Anthropic Claude structuring
+    const exclusionInstruction = excludeCompanies.length > 0
+      ? `\n\nIMPORTANT: Do NOT return any of the following companies that have already been found: ${excludeCompanies.join(", ")}. Only return new companies that are not in this list.`
+      : "";
+
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -80,9 +83,9 @@ Deno.serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-5",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
-        system: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — guess a realistic name if not found), title (string), email (string — guess format as firstname@company.com), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.`,
+        system: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — guess a realistic name if not found), title (string), email (string — guess format as firstname@company.com), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.${exclusionInstruction}`,
         messages: [
           {
             role: "user",
