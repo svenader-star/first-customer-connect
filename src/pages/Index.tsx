@@ -19,6 +19,16 @@ export default function Index() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [foundLeads, setFoundLeads] = useState<any[] | null>(null);
 
+  // Persist setup form state across tab switches
+  const [setupForm, setSetupForm] = useState({
+    geo: "germany",
+    icpDescription: "",
+    company1: "",
+    company2: "",
+    company3: "",
+    role: "",
+  });
+
   const handleFoundLeads = (leads: any[]) => {
     setFoundLeads(leads);
     setActiveTab("leads");
@@ -65,7 +75,7 @@ export default function Index() {
             <OutreachTemplatesPanel onClose={() => setShowTemplates(false)} />
           ) : (
             <>
-              {activeTab === "setup" && <SetupScreen onFindLeads={handleFoundLeads} />}
+              {activeTab === "setup" && <SetupScreen onFindLeads={handleFoundLeads} formState={setupForm} onFormChange={setSetupForm} />}
               {activeTab === "leads" && <LeadsScreen externalLeads={foundLeads} />}
               {activeTab === "outreach" && <OutreachScreen />}
             </>
