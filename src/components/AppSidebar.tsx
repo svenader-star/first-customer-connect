@@ -1,6 +1,16 @@
-import { useState } from "react";
-import { Plus, Mail } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, Mail, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AppSidebarProps {
   onTemplatesClick: () => void;
@@ -11,9 +21,41 @@ export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
     "Space 1", "Space 2", "Space 3", "Space 4", "Space 5", "Space 6",
   ]);
   const [active, setActive] = useState(0);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingIndex !== null && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingIndex]);
 
   const addSpace = () => {
     setSpaces((s) => [...s, `Space ${s.length + 1}`]);
+  };
+
+  const startRename = (i: number) => {
+    setEditingIndex(i);
+    setEditValue(spaces[i]);
+  };
+
+  const commitRename = () => {
+    if (editingIndex !== null && editValue.trim()) {
+      setSpaces((s) => s.map((name, i) => (i === editingIndex ? editValue.trim() : name)));
+    }
+    setEditingIndex(null);
+  };
+
+  const confirmDelete = () => {
+    if (deleteIndex !== null) {
+      setSpaces((s) => s.filter((_, i) => i !== deleteIndex));
+      if (active === deleteIndex) setActive(0);
+      else if (active > deleteIndex) setActive((a) => a - 1);
+      setDeleteIndex(null);
+    }
   };
 
   return (
@@ -28,17 +70,43 @@ export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
         {spaces.map((name, i) => (
-          <button
-            key={i}
-            onClick={() => setActive(i)}
-            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-              i === active
-                ? "bg-primary text-primary-foreground font-medium"
-                : "text-foreground hover:bg-accent"
-            }`}
-          >
-            {name}
-          </button>
+          <div key={i} className="group relative flex items-center">
+            {editingIndex === i ? (
+              <input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitRename();
+                  if (e.key === "Escape") setEditingIndex(null);
+                }}
+                className="w-full px-3 py-2 rounded-md text-sm bg-background border border-input outline-none"
+              />
+            ) : (
+              <button
+                onClick={() => setActive(i)}
+                onDoubleClick={() => startRename(i)}
+                onContextMenu={(e) => { e.preventDefault(); startRename(i); }}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  i === active
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "text-foreground hover:bg-accent"
+                }`}
+              >
+                {name}
+              </button>
+            )}
+
+            {editingIndex !== i && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeleteIndex(i); }}
+                className="absolute right-1.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded text-muted-foreground hover:text-foreground hover:bg-accent"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         ))}
 
         <button
@@ -54,6 +122,21 @@ export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
           <Mail className="h-4 w-4" /> Outreach Templates
         </Button>
       </div>
+
+      <AlertDialog open={deleteIndex !== null} onOpenChange={() => setDeleteIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Space</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the Space "{deleteIndex !== null ? spaces[deleteIndex] : ""}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }
