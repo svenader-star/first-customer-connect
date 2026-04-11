@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Copy, Loader2, Sparkles, Plus, ChevronDown, Search, UserPlus } from "lucide-react";
+import { Copy, Loader2, Sparkles, Plus, ChevronDown, Search, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -89,17 +89,19 @@ interface LeadsScreenProps {
   leads: DbLead[];
   onUpdateLead: (id: string, field: keyof DbLead, value: string | boolean) => void;
   onAppendLeads: (leads: any[]) => Promise<void>;
+  onDeleteLeads: (ids: string[]) => Promise<void>;
   setupForm: SetupFormState;
   outreachSettings: OutreachSettings;
   templates: OutreachTemplate[];
 }
 
-export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
+export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
   const [findingLeads, setFindingLeads] = useState(false);
   const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
   const manualRowRef = useRef<HTMLTableRowElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
