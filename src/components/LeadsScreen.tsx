@@ -95,6 +95,8 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
   const [findingLeads, setFindingLeads] = useState(false);
+  const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
+  const manualRowRef = useRef<HTMLTableRowElement>(null);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
