@@ -28,7 +28,7 @@ export default function Index() {
   const activeSpaceId = activeSpace?.id || null;
 
   const { form: setupForm, updateForm: setSetupForm } = useSpaceSetup(activeSpaceId);
-  const { leads, saveExternalLeads, appendLeads, updateLead } = useLeads(activeSpaceId);
+  const { leads, saveExternalLeads, appendLeads, updateLead, deleteLeads } = useLeads(activeSpaceId);
   const { settings: outreachSettings, updateSettings: setOutreachSettings } = useOutreachSettings(activeSpaceId);
   const { templates } = useOutreachTemplates();
 
@@ -101,6 +101,7 @@ export default function Index() {
                   leads={leads}
                   onUpdateLead={updateLead}
                   onAppendLeads={appendLeads}
+                  onDeleteLeads={deleteLeads}
                   setupForm={setupForm}
                   outreachSettings={outreachSettings}
                   templates={templates}

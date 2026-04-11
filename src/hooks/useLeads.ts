@@ -88,5 +88,13 @@ export function useLeads(spaceId: string | null) {
     []
   );
 
-  return { leads, loading, saveExternalLeads, appendLeads, updateLead };
+  const deleteLeads = useCallback(
+    async (ids: string[]) => {
+      setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
+      await supabase.from("leads").delete().in("id", ids);
+    },
+    []
+  );
+
+  return { leads, loading, saveExternalLeads, appendLeads, updateLead, deleteLeads };
 }
