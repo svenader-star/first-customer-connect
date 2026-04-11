@@ -14,7 +14,142 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          company: string
+          email: string
+          email_sent: boolean
+          followup_sent: boolean
+          id: string
+          linkedin: string
+          linkedin_sent: boolean
+          person: string
+          source: string
+          space_id: string
+          title: string
+          website: string
+        }
+        Insert: {
+          company?: string
+          email?: string
+          email_sent?: boolean
+          followup_sent?: boolean
+          id?: string
+          linkedin?: string
+          linkedin_sent?: boolean
+          person?: string
+          source?: string
+          space_id: string
+          title?: string
+          website?: string
+        }
+        Update: {
+          company?: string
+          email?: string
+          email_sent?: boolean
+          followup_sent?: boolean
+          id?: string
+          linkedin?: string
+          linkedin_sent?: boolean
+          person?: string
+          source?: string
+          space_id?: string
+          title?: string
+          website?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_templates: {
+        Row: {
+          body: string
+          id: string
+          subject_line: string
+          template_number: number
+          type: string
+        }
+        Insert: {
+          body?: string
+          id?: string
+          subject_line?: string
+          template_number: number
+          type: string
+        }
+        Update: {
+          body?: string
+          id?: string
+          subject_line?: string
+          template_number?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      space_setup: {
+        Row: {
+          example_company_1: string
+          example_company_2: string
+          example_company_3: string
+          geography: string
+          icp_description: string
+          id: string
+          role: string
+          space_id: string
+        }
+        Insert: {
+          example_company_1?: string
+          example_company_2?: string
+          example_company_3?: string
+          geography?: string
+          icp_description?: string
+          id?: string
+          role?: string
+          space_id: string
+        }
+        Update: {
+          example_company_1?: string
+          example_company_2?: string
+          example_company_3?: string
+          geography?: string
+          icp_description?: string
+          id?: string
+          role?: string
+          space_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_setup_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: true
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaces: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
