@@ -14,13 +14,18 @@ import {
 
 interface AppSidebarProps {
   onTemplatesClick: () => void;
+  onActiveSpaceChange?: (name: string) => void;
 }
 
-export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
+export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebarProps) {
   const [spaces, setSpaces] = useState([
     "Space 1", "Space 2", "Space 3", "Space 4", "Space 5", "Space 6",
   ]);
-  const [active, setActive] = useState(0);
+  const [active, setActiveState] = useState(0);
+  const setActive = (i: number) => {
+    setActiveState(i);
+    onActiveSpaceChange?.(spaces[i]);
+  };
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
@@ -53,7 +58,7 @@ export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
     if (deleteIndex !== null) {
       setSpaces((s) => s.filter((_, i) => i !== deleteIndex));
       if (active === deleteIndex) setActive(0);
-      else if (active > deleteIndex) setActive((a) => a - 1);
+      else if (active > deleteIndex) setActive(active - 1);
       setDeleteIndex(null);
     }
   };
