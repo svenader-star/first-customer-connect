@@ -30,7 +30,7 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Example Companies</Label>
+        <Label className="text-sm font-medium">Example Companies (add links of exemplary websites)</Label>
         <div className="space-y-2">
           <Input placeholder="e.g. Personio" />
           <Input placeholder="e.g. Celonis" />
