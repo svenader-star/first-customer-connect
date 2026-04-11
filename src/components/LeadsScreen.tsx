@@ -305,6 +305,18 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
             ) : (
               leads.map((l) => (
                 <TableRow key={l.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(l.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          checked ? next.add(l.id) : next.delete(l.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableCell>
                   {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
                     <TableCell
                       key={field}
