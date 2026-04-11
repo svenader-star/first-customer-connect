@@ -257,6 +257,12 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
         </DropdownMenu>
       </div>
 
+      {noResultsBanner && (
+        <div className="mb-3 px-4 py-3 rounded-lg bg-muted text-muted-foreground text-sm font-medium text-center border border-border">
+          Keine weiteren passenden Unternehmen gefunden
+        </div>
+      )}
+
       <div className="border border-border rounded-lg overflow-x-auto">
         <Table className="min-w-[1400px]">
           <TableHeader>
