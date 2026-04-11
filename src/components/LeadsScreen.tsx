@@ -4,7 +4,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Copy, Loader2, Sparkles } from "lucide-react";
+import { Copy, Loader2, Sparkles, Plus } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -19,11 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { DbLead } from "@/hooks/useLeads";
 import type { OutreachSettings } from "@/hooks/useOutreachSettings";
 import type { OutreachTemplate } from "@/hooks/useOutreachTemplates";
+import type { SetupFormState } from "@/components/SetupScreen";
 
 function EditableCell({ value, onSave, className }: { value: string; onSave: (v: string) => void; className?: string }) {
   const [editing, setEditing] = useState(false);
@@ -78,14 +79,16 @@ interface ModalState {
 interface LeadsScreenProps {
   leads: DbLead[];
   onUpdateLead: (id: string, field: keyof DbLead, value: string | boolean) => void;
-  onAddLead: () => void;
+  onAppendLeads: (leads: any[]) => Promise<void>;
+  setupForm: SetupFormState;
   outreachSettings: OutreachSettings;
   templates: OutreachTemplate[];
 }
 
-export function LeadsScreen({ leads, onUpdateLead, onAddLead, outreachSettings, templates }: LeadsScreenProps) {
+export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [findingLeads, setFindingLeads] = useState(false);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
@@ -141,11 +144,46 @@ export function LeadsScreen({ leads, onUpdateLead, onAddLead, outreachSettings, 
     }
   };
 
+  const handleAddLeads = async () => {
+    if (!setupForm.icpDescription || !setupForm.company1 || !setupForm.company2 || !setupForm.company3 || !setupForm.role) {
+      toast.error("Please fill in the Setup tab first before adding more leads.");
+      return;
+    }
+    setFindingLeads(true);
+    try {
+      const existingCompanies = leads.map((l) => l.company).filter(Boolean);
+      const { data, error } = await supabase.functions.invoke("find-leads", {
+        body: {
+          icpDescription: setupForm.icpDescription,
+          exampleCompanies: [setupForm.company1, setupForm.company2, setupForm.company3],
+          role: setupForm.role,
+          geography: setupForm.geo,
+          excludeCompanies: existingCompanies,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      await onAppendLeads(data.leads);
+      toast.success(`Found ${data.leads.length} new leads!`);
+    } catch (err: any) {
+      console.error("Add leads error:", err);
+      toast.error(err.message || "Failed to find new leads");
+    } finally {
+      setFindingLeads(false);
+    }
+  };
+
   return (
     <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">Leads</h2>
-        <Button size="sm" onClick={onAddLead}>+ Add Leads</Button>
+        <Button size="sm" onClick={handleAddLeads} disabled={findingLeads}>
+          {findingLeads ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</>
+          ) : (
+            <><Plus className="h-4 w-4 mr-1" /> Add Leads</>
+          )}
+        </Button>
       </div>
 
       <div className="border border-border rounded-lg overflow-x-auto">

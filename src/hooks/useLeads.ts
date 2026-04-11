@@ -60,15 +60,25 @@ export function useLeads(spaceId: string | null) {
     [spaceId]
   );
 
-  const addEmptyLead = useCallback(async () => {
-    if (!spaceId) return;
-    const { data } = await supabase
-      .from("leads")
-      .insert({ space_id: spaceId })
-      .select()
-      .single();
-    if (data) setLeads((prev) => [...prev, data]);
-  }, [spaceId]);
+  const appendLeads = useCallback(
+    async (newLeads: any[]) => {
+      if (!spaceId) return;
+      const rows = newLeads.map((l: any) => ({
+        space_id: spaceId,
+        company: l.company || "",
+        website: l.website || "",
+        person: l.person || "",
+        title: l.title || "",
+        email: l.email || "",
+        linkedin: l.linkedin || "",
+        source: l.source || "tavily",
+      }));
+
+      const { data } = await supabase.from("leads").insert(rows).select();
+      if (data) setLeads((prev) => [...data, ...prev]);
+    },
+    [spaceId]
+  );
 
   const updateLead = useCallback(
     async (id: string, field: keyof DbLead, value: string | boolean) => {
@@ -78,5 +88,5 @@ export function useLeads(spaceId: string | null) {
     []
   );
 
-  return { leads, loading, saveExternalLeads, addEmptyLead, updateLead };
+  return { leads, loading, saveExternalLeads, appendLeads, updateLead };
 }
