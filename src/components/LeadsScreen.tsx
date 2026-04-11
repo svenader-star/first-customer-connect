@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Copy } from "lucide-react";
+import { Copy, Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { DbLead } from "@/hooks/useLeads";
+import type { OutreachSettings } from "@/hooks/useOutreachSettings";
+import type { OutreachTemplate } from "@/hooks/useOutreachTemplates";
 
 function EditableCell({ value, onSave, className }: { value: string; onSave: (v: string) => void; className?: string }) {
   const [editing, setEditing] = useState(false);
@@ -76,10 +79,13 @@ interface LeadsScreenProps {
   leads: DbLead[];
   onUpdateLead: (id: string, field: keyof DbLead, value: string | boolean) => void;
   onAddLead: () => void;
+  outreachSettings: OutreachSettings;
+  templates: OutreachTemplate[];
 }
 
-export function LeadsScreen({ leads, onUpdateLead, onAddLead }: LeadsScreenProps) {
+export function LeadsScreen({ leads, onUpdateLead, onAddLead, outreachSettings, templates }: LeadsScreenProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [generating, setGenerating] = useState(false);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
@@ -87,6 +93,53 @@ export function LeadsScreen({ leads, onUpdateLead, onAddLead }: LeadsScreenProps
     : modal.type === "linkedin" ? `LinkedIn Draft — ${modal.person}`
     : `Follow-up Draft — ${modal.person}`
     : "";
+
+  const handleGenerate = async () => {
+    if (!currentLead || !modal) return;
+    setGenerating(true);
+
+    const isLinkedin = modal.type === "linkedin";
+    const outreach = {
+      task: isLinkedin ? outreachSettings.linkedinTask : outreachSettings.emailTask,
+      goal: isLinkedin ? outreachSettings.linkedinGoal : outreachSettings.emailGoal,
+      tone: isLinkedin ? outreachSettings.linkedinTone : outreachSettings.emailTone,
+    };
+
+    try {
+      const { data, error } = await supabase.functions.invoke("draft-message", {
+        body: {
+          lead: {
+            person: currentLead.person,
+            company: currentLead.company,
+            title: currentLead.title,
+            website: currentLead.website,
+          },
+          draftType: modal.type,
+          outreachSettings: outreach,
+          templates,
+        },
+      });
+
+      if (error) throw error;
+
+      if (modal.type === "linkedin") {
+        if (data.message) onUpdateLead(currentLead.id, "linkedin_draft_body", data.message);
+      } else if (modal.type === "email") {
+        if (data.subjectLine) onUpdateLead(currentLead.id, "email_draft_subject", data.subjectLine);
+        if (data.body) onUpdateLead(currentLead.id, "email_draft_body", data.body);
+      } else {
+        if (data.subjectLine) onUpdateLead(currentLead.id, "followup_draft_subject", data.subjectLine);
+        if (data.body) onUpdateLead(currentLead.id, "followup_draft_body", data.body);
+      }
+
+      toast.success("Draft generated!");
+    } catch (e) {
+      console.error("Draft generation error:", e);
+      toast.error("Failed to generate draft");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="p-6 min-w-0">
@@ -166,6 +219,20 @@ export function LeadsScreen({ leads, onUpdateLead, onAddLead }: LeadsScreenProps
           <DialogHeader>
             <DialogTitle className="text-foreground">{modalTitle}</DialogTitle>
           </DialogHeader>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={handleGenerate}
+            disabled={generating}
+          >
+            {generating ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
+            ) : (
+              <><Sparkles className="h-4 w-4 mr-2" /> Generate with AI</>
+            )}
+          </Button>
 
           {currentLead && modal?.type === "email" && (
             <div className="space-y-4 mt-2">

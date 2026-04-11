@@ -108,32 +108,50 @@ export type Database = {
       }
       space_setup: {
         Row: {
+          email_goal: string
+          email_task: string
+          email_tone: string
           example_company_1: string
           example_company_2: string
           example_company_3: string
           geography: string
           icp_description: string
           id: string
+          linkedin_goal: string
+          linkedin_task: string
+          linkedin_tone: string
           role: string
           space_id: string
         }
         Insert: {
+          email_goal?: string
+          email_task?: string
+          email_tone?: string
           example_company_1?: string
           example_company_2?: string
           example_company_3?: string
           geography?: string
           icp_description?: string
           id?: string
+          linkedin_goal?: string
+          linkedin_task?: string
+          linkedin_tone?: string
           role?: string
           space_id: string
         }
         Update: {
+          email_goal?: string
+          email_task?: string
+          email_tone?: string
           example_company_1?: string
           example_company_2?: string
           example_company_3?: string
           geography?: string
           icp_description?: string
           id?: string
+          linkedin_goal?: string
+          linkedin_task?: string
+          linkedin_tone?: string
           role?: string
           space_id?: string
         }

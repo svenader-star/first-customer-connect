@@ -1,0 +1,7 @@
+ALTER TABLE public.space_setup
+  ADD COLUMN email_task TEXT NOT NULL DEFAULT '',
+  ADD COLUMN email_goal TEXT NOT NULL DEFAULT '',
+  ADD COLUMN email_tone TEXT NOT NULL DEFAULT '',
+  ADD COLUMN linkedin_task TEXT NOT NULL DEFAULT '',
+  ADD COLUMN linkedin_goal TEXT NOT NULL DEFAULT '',
+  ADD COLUMN linkedin_tone TEXT NOT NULL DEFAULT '';
