@@ -14,9 +14,10 @@ import {
 
 interface AppSidebarProps {
   onTemplatesClick: () => void;
+  onActiveSpaceChange?: (name: string) => void;
 }
 
-export function AppSidebar({ onTemplatesClick }: AppSidebarProps) {
+export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebarProps) {
   const [spaces, setSpaces] = useState([
     "Space 1", "Space 2", "Space 3", "Space 4", "Space 5", "Space 6",
   ]);
