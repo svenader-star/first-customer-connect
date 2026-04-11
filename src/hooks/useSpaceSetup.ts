@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SetupFormState } from "@/components/SetupScreen";
 
 const defaultForm: SetupFormState = {
+  companyType: "startups",
   geo: "germany",
   icpDescription: "",
   company1: "",
@@ -29,6 +30,7 @@ export function useSpaceSetup(spaceId: string | null) {
 
       if (data) {
         setForm({
+          companyType: (data as any).company_type || "startups",
           geo: data.geography || "germany",
           icpDescription: data.icp_description || "",
           company1: data.example_company_1 || "",
@@ -54,13 +56,14 @@ export function useSpaceSetup(spaceId: string | null) {
         await supabase
           .from("space_setup")
           .update({
+            company_type: newForm.companyType,
             icp_description: newForm.icpDescription,
             example_company_1: newForm.company1,
             example_company_2: newForm.company2,
             example_company_3: newForm.company3,
             role: newForm.role,
             geography: newForm.geo,
-          })
+          } as any)
           .eq("space_id", currentSpaceId.current);
       }, 500);
     },
