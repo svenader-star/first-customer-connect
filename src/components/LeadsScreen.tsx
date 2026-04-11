@@ -214,7 +214,22 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
   return (
     <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Leads</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Leads</h2>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                await onDeleteLeads(Array.from(selectedIds));
+                setSelectedIds(new Set());
+                toast.success(`Deleted ${selectedIds.size} lead(s)`);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.size})
+            </Button>
+          )}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" disabled={findingLeads}>
