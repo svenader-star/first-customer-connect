@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
     if (!TAVILY_API_KEY) throw new Error("TAVILY_API_KEY is not configured");
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     // Step 1: Tavily searches
     const queries = [
@@ -71,20 +71,19 @@ Deno.serve(async (req) => {
 
     console.log(`Got ${combinedResults.length} total search results`);
 
-    // Step 2: OpenAI structuring
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Step 2: Anthropic Claude structuring
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "claude-opus-4-5",
+        max_tokens: 2000,
+        system: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — guess a realistic name if not found), title (string), email (string — guess format as firstname@company.com), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.`,
         messages: [
-          {
-            role: "system",
-            content: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — guess a realistic name if not found), title (string), email (string — guess format as firstname@company.com), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.`,
-          },
           {
             role: "user",
             content: `Search context: Looking for ${role} at companies matching "${icpDescription}" in ${geography}. Example companies: ${exampleCompanies.join(", ")}.\n\nSearch results:\n${JSON.stringify(combinedResults, null, 2)}`,
@@ -94,19 +93,19 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (!openaiRes.ok) {
-      const text = await openaiRes.text();
-      throw new Error(`OpenAI API error [${openaiRes.status}]: ${text}`);
+    if (!anthropicRes.ok) {
+      const text = await anthropicRes.text();
+      throw new Error(`Anthropic API error [${anthropicRes.status}]: ${text}`);
     }
 
-    const openaiData = await openaiRes.json();
-    const content = openaiData.choices?.[0]?.message?.content?.trim();
+    const anthropicData = await anthropicRes.json();
+    const content = anthropicData.content?.[0]?.text?.trim();
 
-    if (!content) throw new Error("Empty response from OpenAI");
+    if (!content) throw new Error("Empty response from Anthropic");
 
     const leads = JSON.parse(content);
 
-    if (!Array.isArray(leads)) throw new Error("OpenAI did not return a JSON array");
+    if (!Array.isArray(leads)) throw new Error("Anthropic did not return a JSON array");
 
     console.log(`Extracted ${leads.length} leads`);
 
