@@ -181,17 +181,54 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
     }
   };
 
+  const handleAddManualRow = () => {
+    setManualRow({ company: "", website: "", person: "", title: "", email: "", linkedin: "", source: "" });
+  };
+
+  const handleSaveManualRow = async () => {
+    if (!manualRow) return;
+    const hasData = Object.values(manualRow).some((v) => v.trim() !== "");
+    if (hasData) {
+      await onAppendLeads([manualRow]);
+      toast.success("Lead added!");
+    }
+    setManualRow(null);
+  };
+
+  useEffect(() => {
+    if (!manualRow) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (manualRowRef.current && !manualRowRef.current.contains(e.target as Node)) {
+        handleSaveManualRow();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [manualRow]);
+
   return (
     <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">Leads</h2>
-        <Button size="sm" onClick={handleAddLeads} disabled={findingLeads}>
-          {findingLeads ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</>
-          ) : (
-            <><Plus className="h-4 w-4 mr-1" /> Add Leads</>
-          )}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" disabled={findingLeads}>
+              {findingLeads ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</>
+              ) : (
+                <><Plus className="h-4 w-4 mr-1" /> Add Leads <ChevronDown className="h-3.5 w-3.5 ml-1" /></>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleAddLeads} disabled={findingLeads}>
+              <Search className="h-4 w-4 mr-2" /> Generate More Leads
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleAddManualRow}>
+              <UserPlus className="h-4 w-4 mr-2" /> Add Lead Manually
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="border border-border rounded-lg overflow-x-auto">
