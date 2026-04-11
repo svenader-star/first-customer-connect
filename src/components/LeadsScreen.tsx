@@ -4,8 +4,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Copy, Loader2, Sparkles, Plus } from "lucide-react";
+import { Copy, Loader2, Sparkles, Plus, ChevronDown, Search, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -89,6 +95,8 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
   const [findingLeads, setFindingLeads] = useState(false);
+  const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
+  const manualRowRef = useRef<HTMLTableRowElement>(null);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
@@ -173,17 +181,54 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
     }
   };
 
+  const handleAddManualRow = () => {
+    setManualRow({ company: "", website: "", person: "", title: "", email: "", linkedin: "", source: "" });
+  };
+
+  const handleSaveManualRow = async () => {
+    if (!manualRow) return;
+    const hasData = Object.values(manualRow).some((v) => v.trim() !== "");
+    if (hasData) {
+      await onAppendLeads([manualRow]);
+      toast.success("Lead added!");
+    }
+    setManualRow(null);
+  };
+
+  useEffect(() => {
+    if (!manualRow) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (manualRowRef.current && !manualRowRef.current.contains(e.target as Node)) {
+        handleSaveManualRow();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [manualRow]);
+
   return (
     <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">Leads</h2>
-        <Button size="sm" onClick={handleAddLeads} disabled={findingLeads}>
-          {findingLeads ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</>
-          ) : (
-            <><Plus className="h-4 w-4 mr-1" /> Add Leads</>
-          )}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" disabled={findingLeads}>
+              {findingLeads ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</>
+              ) : (
+                <><Plus className="h-4 w-4 mr-1" /> Add Leads <ChevronDown className="h-3.5 w-3.5 ml-1" /></>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleAddLeads} disabled={findingLeads}>
+              <Search className="h-4 w-4 mr-2" /> Generate More Leads
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleAddManualRow}>
+              <UserPlus className="h-4 w-4 mr-2" /> Add Lead Manually
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="border border-border rounded-lg overflow-x-auto">
@@ -206,7 +251,23 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.length === 0 ? (
+            {manualRow && (
+              <TableRow ref={manualRowRef} className="bg-muted/30">
+                {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
+                  <TableCell key={field}>
+                    <Input
+                      value={manualRow[field]}
+                      onChange={(e) => setManualRow((prev) => prev ? { ...prev, [field]: e.target.value } : prev)}
+                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                      className="h-7 text-sm px-2 py-0 border-border/50"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveManualRow(); }}
+                    />
+                  </TableCell>
+                ))}
+                <TableCell colSpan={6} />
+              </TableRow>
+            )}
+            {leads.length === 0 && !manualRow ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   No leads yet. Use the Setup tab to find leads.
