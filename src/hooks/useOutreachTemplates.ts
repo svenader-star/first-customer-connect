@@ -40,7 +40,7 @@ export function useOutreachTemplates() {
 
     if (debounceRef.current[id]) clearTimeout(debounceRef.current[id]);
     debounceRef.current[id] = setTimeout(async () => {
-      await supabase.from("outreach_templates").update({ [field]: value }).eq("id", id);
+      await supabase.from("outreach_templates").update({ [field]: value } as any).eq("id", id);
     }, 500);
   }, []);
 

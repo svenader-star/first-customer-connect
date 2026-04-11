@@ -57,9 +57,9 @@ export function useLeads(spaceId: string | null) {
   );
 
   const updateLead = useCallback(
-    async (id: string, field: string, value: string | boolean) => {
+    async (id: string, field: keyof DbLead, value: string | boolean) => {
       setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
-      await supabase.from("leads").update({ [field]: value }).eq("id", id);
+      await supabase.from("leads").update({ [field]: value } as any).eq("id", id);
     },
     []
   );
