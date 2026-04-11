@@ -32,7 +32,7 @@ import type { OutreachSettings } from "@/hooks/useOutreachSettings";
 import type { OutreachTemplate } from "@/hooks/useOutreachTemplates";
 import type { SetupFormState } from "@/components/SetupScreen";
 
-function EditableCell({ value, onSave, className }: { value: string; onSave: (v: string) => void; className?: string }) {
+function EditableCell({ value, onSave, className, renderDisplay }: { value: string; onSave: (v: string) => void; className?: string; renderDisplay?: (val: string, onEdit: () => void) => React.ReactNode }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,13 +53,16 @@ function EditableCell({ value, onSave, className }: { value: string; onSave: (v:
     );
   }
 
+  if (renderDisplay) {
+    return <>{renderDisplay(value, () => setEditing(true))}</>;
+  }
+
   return (
     <span className={className} onDoubleClick={() => setEditing(true)} style={{ cursor: "default" }}>
       {value || "\u00A0"}
     </span>
   );
 }
-
 function CopyButton({ getText }: { getText: () => string }) {
   return (
     <Button
