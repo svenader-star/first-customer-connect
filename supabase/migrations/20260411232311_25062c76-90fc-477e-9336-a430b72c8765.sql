@@ -1,0 +1,1 @@
+ALTER TABLE public.space_setup ADD COLUMN company_type text NOT NULL DEFAULT 'startups';

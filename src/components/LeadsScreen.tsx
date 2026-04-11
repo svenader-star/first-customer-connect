@@ -173,6 +173,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
           role: setupForm.role,
           geography: setupForm.geo,
           excludeCompanies: existingCompanies,
+          companyType: setupForm.companyType || "startups",
         },
       });
       if (error) throw error;

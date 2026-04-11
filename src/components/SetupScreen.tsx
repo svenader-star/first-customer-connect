@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SetupFormState {
+  companyType: string;
   geo: string;
   icpDescription: string;
   company1: string;
@@ -46,6 +47,7 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
           exampleCompanies: [formState.company1, formState.company2, formState.company3],
           role: formState.role,
           geography: formState.geo,
+          companyType: formState.companyType || "startups",
         },
       });
 
@@ -63,6 +65,29 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
 
   return (
     <div className="max-w-2xl mx-auto py-10 px-6 space-y-6">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Company Type</Label>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: "startups", label: "🚀 Startups & Tech" },
+            { value: "kmu", label: "🔧 KMU & Handwerk" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => update("companyType", opt.value)}
+              className={`px-4 py-3 rounded-lg border-2 text-sm font-semibold transition-colors ${
+                formState.companyType === opt.value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="icp" className="text-sm font-medium">ICP Description</Label>
         <Textarea
