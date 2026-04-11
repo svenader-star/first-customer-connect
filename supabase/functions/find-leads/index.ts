@@ -32,7 +32,7 @@ async function tavilySearch(query: string, apiKey: string, depth = "advanced", m
   return await res.json();
 }
 
-function buildQueries(companyType: string, icpDescription: string, exampleCompanies: string[], role: string, geography: string): string[] {
+function buildDiscoveryQueries(companyType: string, icpDescription: string, exampleCompanies: string[], role: string, geography: string): string[] {
   if (companyType === "kmu") {
     return [
       `${icpDescription} ${geography} site:wlw.de`,
@@ -52,117 +52,144 @@ function buildQueries(companyType: string, icpDescription: string, exampleCompan
   ];
 }
 
-function buildSystemPrompt(companyType: string, exclusionInstruction: string): string {
-  const base = companyType === "kmu"
-    ? `You are a lead research assistant specializing in German SMBs (KMU), Handwerk, and traditional businesses.`
-    : `You are a lead research assistant.`;
-
-  return `${base} Based on the search results provided, extract real companies and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — leave empty, will be enriched later), title (string — leave empty, will be enriched later), email (string — leave empty, will be enriched later), linkedin (string — leave empty, will be enriched later), source (string — tavily). Return ONLY a valid JSON array with up to 25 leads, no explanation, no markdown, no code fences.
-
-IMPORTANT: Only return companies that strictly match the ICP description provided. If a search result does not clearly match the ICP, exclude it entirely. It is better to return fewer results than to return irrelevant companies. Do not fill up the list with loosely related companies. Extract up to 25 distinct companies. If fewer than 25 match, return only the ones that genuinely match — do not pad with irrelevant results.
-
-For person, title, email, and linkedin fields: set them all to empty strings. These will be populated in a separate enrichment step. Focus ONLY on identifying matching companies and their websites.${exclusionInstruction}`;
-}
-
 function extractEmail(text: string): string | null {
   const match = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
   return match ? match[0] : null;
 }
 
-// Step 1: Find the person for a given company using the role from Setup
-async function enrichPerson(lead: any, role: string, geography: string, apiKey: string) {
-  const company = (lead.company || "").trim();
-  if (!company) return;
+function extractUrl(results: any[], companyName: string): string {
+  for (const r of results) {
+    const url = r.url || "";
+    // Skip directory/listing sites
+    if (/linkedin\.com|crunchbase\.com|wlw\.de|gelbeseiten\.de|kompass\.com|firmenwissen\.de|northdata\.de|facebook\.com|twitter\.com|instagram\.com/i.test(url)) continue;
+    try {
+      const parsed = new URL(url);
+      return `${parsed.protocol}//${parsed.hostname}`;
+    } catch { continue; }
+  }
+  return "";
+}
 
+// Step 2a: Find company website
+async function enrichWebsite(lead: any, geography: string, apiKey: string) {
   try {
-    const query = `${company} ${role} ${geography}`;
-    console.log(`Step 1 — Finding person: ${query}`);
+    const query = `${lead.company} ${geography} official website`;
+    console.log(`  2a — Website search: ${query}`);
     const data = await tavilySearch(query, apiKey, "basic", 5);
-    const results = data.results || [];
-    const combined = results.map((r: any) => `${r.title} ${r.content}`).join("\n");
-
-    // Try to extract person name and title using simple heuristics
-    // We'll pass to a lightweight Claude call for extraction
-    lead._personSearchResults = combined;
+    const website = extractUrl(data.results || [], lead.company);
+    if (website) {
+      lead.website = website;
+      console.log(`  2a — Found website: ${website}`);
+    }
   } catch (e) {
-    console.warn(`Step 1 failed for ${lead.company}:`, e);
+    console.warn(`  2a failed for ${lead.company}:`, e);
   }
 }
 
-// Step 2: Find person's email
-async function enrichPersonEmail(lead: any, apiKey: string) {
-  const person = (lead.person || "").trim();
-  const company = (lead.company || "").trim();
-  if (!person || !company) return;
-
+// Step 2b: Find person
+async function enrichPerson(lead: any, role: string, geography: string, apiKey: string, anthropicKey: string) {
   try {
-    const nameParts = person.split(" ");
-    const query = `${person} ${company} Email OR Kontakt`;
-    console.log(`Step 2 — Finding email for ${person}: ${query}`);
-    const data = await tavilySearch(query, apiKey, "basic", 3);
-    const results = data.results || [];
+    const query = `${lead.company} ${role} ${geography}`;
+    console.log(`  2b — Person search: ${query}`);
+    const data = await tavilySearch(query, apiKey, "basic", 5);
+    const combined = (data.results || []).map((r: any) => `${r.title} ${r.content}`).join("\n");
+    if (!combined.trim()) return;
 
-    for (const r of results) {
-      const email = extractEmail(`${r.title} ${r.content} ${r.url}`);
-      if (email) {
-        lead.email = email;
-        console.log(`Step 2 — Found email for ${person}: ${email}`);
-        return;
+    // Use Claude to extract person name/title
+    const extractRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: `Extract exactly one person's name and job title from the search results for company "${lead.company}". The role we seek is: "${role}". Return JSON: {"person":"...","title":"..."}. Only use names explicitly found in the text. If no person found, return empty strings. No markdown, no code fences.`,
+        messages: [{ role: "user", content: combined.substring(0, 2000) }],
+        temperature: 0.1,
+      }),
+    });
+
+    if (extractRes.ok) {
+      const extractData = await extractRes.json();
+      const text = extractData.content?.[0]?.text?.trim();
+      if (text) {
+        const parsed = JSON.parse(text);
+        if (parsed.person) {
+          lead.person = parsed.person;
+          lead.title = parsed.title || "";
+          console.log(`  2b — Found person: ${parsed.person} (${parsed.title})`);
+        }
       }
     }
   } catch (e) {
-    console.warn(`Step 2 failed for ${lead.person}:`, e);
+    console.warn(`  2b failed for ${lead.company}:`, e);
   }
 }
 
-// Step 3: Find general company contact email
-async function enrichCompanyEmail(lead: any, apiKey: string) {
-  if (lead.email) return; // already found in step 2
-
-  const website = (lead.website || "").trim().replace(/\/$/, "");
+// Step 2c: Find email
+async function enrichEmail(lead: any, apiKey: string) {
+  const person = (lead.person || "").trim();
   const company = (lead.company || "").trim();
-  if (!company) return;
+  const website = (lead.website || "").trim().replace(/\/$/, "");
 
+  // Try personal email first if person found
+  if (person) {
+    try {
+      const query = `${person} ${company} email`;
+      console.log(`  2c — Personal email search: ${query}`);
+      const data = await tavilySearch(query, apiKey, "basic", 3);
+      for (const r of (data.results || [])) {
+        const email = extractEmail(`${r.title} ${r.content} ${r.url}`);
+        if (email) {
+          lead.email = email;
+          console.log(`  2c — Found personal email: ${email}`);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn(`  2c personal email failed:`, e);
+    }
+  }
+
+  // Fallback: company contact email
   try {
     const query = website
       ? `${website} Kontakt OR contact OR Impressum Email`
       : `${company} Kontakt Email`;
-    console.log(`Step 3 — Finding company email: ${query}`);
+    console.log(`  2c — Company email search: ${query}`);
     const data = await tavilySearch(query, apiKey, "basic", 3);
-    const results = data.results || [];
-
-    for (const r of results) {
+    for (const r of (data.results || [])) {
       const email = extractEmail(`${r.title} ${r.content} ${r.url}`);
       if (email) {
         lead.email = email;
-        console.log(`Step 3 — Found company email: ${email}`);
+        console.log(`  2c — Found company email: ${email}`);
         return;
       }
     }
   } catch (e) {
-    console.warn(`Step 3 failed for ${lead.company}:`, e);
+    console.warn(`  2c company email failed:`, e);
   }
 }
 
-// Find LinkedIn profile
+// Step 2d: Find LinkedIn
 async function enrichLinkedIn(lead: any, apiKey: string) {
-  if (lead.linkedin && lead.linkedin.includes("linkedin.com/in")) return;
   const person = (lead.person || "").trim();
-  const company = (lead.company || "").trim();
   if (!person) return;
 
   try {
-    const query = `${person} ${company} site:linkedin.com/in`;
+    const query = `${person} ${lead.company} site:linkedin.com/in`;
+    console.log(`  2d — LinkedIn search: ${query}`);
     const data = await tavilySearch(query, apiKey, "basic", 3);
-    const linkedinResult = (data.results || []).find((r: any) =>
-      r.url && r.url.includes("linkedin.com/in/")
-    );
-    if (linkedinResult) {
-      lead.linkedin = linkedinResult.url;
-      console.log(`Found LinkedIn for ${person}: ${linkedinResult.url}`);
+    const match = (data.results || []).find((r: any) => r.url?.includes("linkedin.com/in/"));
+    if (match) {
+      lead.linkedin = match.url;
+      console.log(`  2d — Found LinkedIn: ${match.url}`);
     }
   } catch (e) {
-    console.warn(`LinkedIn search error for ${person}:`, e);
+    console.warn(`  2d LinkedIn failed:`, e);
   }
 }
 
@@ -184,44 +211,108 @@ Deno.serve(async (req) => {
 
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
     if (!TAVILY_API_KEY) throw new Error("TAVILY_API_KEY is not configured");
-
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
-    // === Phase 1: Find companies ===
-    const queries = buildQueries(companyType, icpDescription, exampleCompanies, role, geography);
-    console.log(`Company type: ${companyType}, Running Tavily searches:`, queries);
+    // === STEP 1: Discover company names ===
+    const queries = buildDiscoveryQueries(companyType, icpDescription, exampleCompanies, role, geography);
+    console.log(`Step 1 — Running ${queries.length} discovery searches (${companyType} mode)`);
 
-    const searchResults = await Promise.all(
-      queries.map((q) => tavilySearch(q, TAVILY_API_KEY))
-    );
+    const searchResults = await Promise.all(queries.map(q => tavilySearch(q, TAVILY_API_KEY)));
+    const allResults = searchResults.flatMap(r => r.results || []).map((r: any) => ({
+      title: r.title, url: r.url, content: r.content,
+    }));
 
-    const allResults = searchResults
-      .flatMap((r) => r.results || [])
-      .map((r: any) => ({ title: r.title, url: r.url, content: r.content }));
-
-    // Deduplicate by URL domain to avoid the same company appearing multiple times
+    // Deduplicate by domain
     const seen = new Set<string>();
-    const combinedResults = allResults.filter((r: any) => {
+    const dedupedResults = allResults.filter((r: any) => {
       try {
         const domain = new URL(r.url).hostname.replace("www.", "");
         if (seen.has(domain)) return false;
         seen.add(domain);
         return true;
-      } catch {
-        return true; // keep results with unparseable URLs
-      }
+      } catch { return true; }
     });
 
-    console.log(`Got ${allResults.length} total search results, ${combinedResults.length} after dedup`);
+    console.log(`Step 1 — ${allResults.length} results, ${dedupedResults.length} after dedup`);
 
     const exclusionInstruction = excludeCompanies.length > 0
-      ? `\n\nIMPORTANT: Do NOT return any of the following companies that have already been found: ${excludeCompanies.join(", ")}. Only return new companies that are not in this list.`
+      ? `\n\nDo NOT return any of these companies: ${excludeCompanies.join(", ")}.`
       : "";
 
-    const systemPrompt = buildSystemPrompt(companyType, exclusionInstruction);
+    // Extract company names using Claude
+    const companyExtractionRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        system: `Extract company names from search results that strictly match this ICP: "${icpDescription}". Return ONLY a JSON array of unique company name strings (up to 25). No explanation, no markdown. Only include companies that clearly match the ICP — it is better to return fewer than to include irrelevant ones.${exclusionInstruction}`,
+        messages: [{
+          role: "user",
+          content: `Company type: ${companyType}. Geography: ${geography}.\n\nSearch results:\n${JSON.stringify(dedupedResults, null, 2)}`,
+        }],
+        temperature: 0.2,
+      }),
+    });
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    if (!companyExtractionRes.ok) {
+      const text = await companyExtractionRes.text();
+      throw new Error(`Anthropic error [${companyExtractionRes.status}]: ${text}`);
+    }
+
+    const companyData = await companyExtractionRes.json();
+    const companyListText = companyData.content?.[0]?.text?.trim();
+    if (!companyListText) throw new Error("Empty company list from Claude");
+
+    const companyNames: string[] = JSON.parse(companyListText);
+    if (!Array.isArray(companyNames)) throw new Error("Claude did not return a JSON array of company names");
+
+    // Deduplicate company names (case-insensitive)
+    const seenNames = new Set<string>();
+    const uniqueCompanies = companyNames.filter(name => {
+      const key = name.toLowerCase().trim();
+      if (seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
+
+    console.log(`Step 1 — ${uniqueCompanies.length} unique companies to enrich`);
+
+    // === STEP 2: Enrich each company iteratively ===
+    const leads = uniqueCompanies.map(name => ({
+      company: name,
+      website: "",
+      person: "",
+      title: "",
+      email: "",
+      linkedin: "",
+      source: "tavily",
+    }));
+
+    for (let i = 0; i < leads.length; i++) {
+      const lead = leads[i];
+      console.log(`\nEnriching ${i + 1}/${leads.length}: ${lead.company}`);
+
+      // 2a: Website
+      await enrichWebsite(lead, geography, TAVILY_API_KEY);
+
+      // 2b: Person
+      await enrichPerson(lead, role, geography, TAVILY_API_KEY, ANTHROPIC_API_KEY);
+
+      // 2c: Email
+      await enrichEmail(lead, TAVILY_API_KEY);
+
+      // 2d: LinkedIn (only if person found)
+      await enrichLinkedIn(lead, TAVILY_API_KEY);
+    }
+
+    // === STEP 3: Final cleanup with Claude ===
+    const cleanupRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -231,104 +322,36 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4000,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Search context: Looking for companies matching "${icpDescription}" in ${geography}. Example companies: ${exampleCompanies.join(", ")}. Company type: ${companyType}.\n\nSearch results:\n${JSON.stringify(combinedResults, null, 2)}`,
-          },
-        ],
-        temperature: 0.3,
+        system: `You clean and format lead data. Return a JSON array with these exact fields per lead: company (string), website (string), person (string), title (string), email (string), linkedin (string), source (string — always "tavily"). Rules: 1) Remove any lead where company is empty. 2) Email must contain @ or be empty — never phone numbers. 3) LinkedIn must contain linkedin.com/in or be empty. 4) Never invent data — if a field is empty, keep it empty. 5) Remove obvious duplicates. Return ONLY valid JSON array, no markdown.`,
+        messages: [{
+          role: "user",
+          content: JSON.stringify(leads),
+        }],
+        temperature: 0.1,
       }),
     });
 
-    if (!anthropicRes.ok) {
-      const text = await anthropicRes.text();
-      throw new Error(`Anthropic API error [${anthropicRes.status}]: ${text}`);
-    }
-
-    const anthropicData = await anthropicRes.json();
-    const content = anthropicData.content?.[0]?.text?.trim();
-    if (!content) throw new Error("Empty response from Anthropic");
-
-    const leads = JSON.parse(content);
-    if (!Array.isArray(leads)) throw new Error("Anthropic did not return a JSON array");
-
-    console.log(`Extracted ${leads.length} companies, starting 3-step enrichment...`);
-
-    // === Phase 2: Step 1 — Find person for each company ===
-    await Promise.all(leads.map((lead: any) => enrichPerson(lead, role, geography, TAVILY_API_KEY)));
-
-    // Use Claude to extract person names from search results
-    const leadsWithSearchData = leads.filter((l: any) => l._personSearchResults);
-    if (leadsWithSearchData.length > 0) {
-      const extractionPrompt = `For each company below, extract the person's name and title from the search results. The role we are looking for is: "${role}". Only use a name if you found it explicitly in the text — NEVER guess or invent a name. Return a JSON array with objects having: company (string), person (string), title (string). If no person found, use empty strings.
-
-${leadsWithSearchData.map((l: any) => `Company: ${l.company}\nSearch results: ${l._personSearchResults?.substring(0, 1500)}`).join("\n\n---\n\n")}`;
-
-      try {
-        const extractRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1500,
-            system: "You extract person names and titles from search results. Return ONLY a valid JSON array, no markdown, no code fences. Only use names explicitly found in the text. Never guess.",
-            messages: [{ role: "user", content: extractionPrompt }],
-            temperature: 0.1,
-          }),
-        });
-
-        if (extractRes.ok) {
-          const extractData = await extractRes.json();
-          const extractContent = extractData.content?.[0]?.text?.trim();
-          if (extractContent) {
-            const personData = JSON.parse(extractContent);
-            if (Array.isArray(personData)) {
-              for (const pd of personData) {
-                const lead = leads.find((l: any) => l.company === pd.company);
-                if (lead && pd.person) {
-                  lead.person = pd.person;
-                  lead.title = pd.title || "";
-                  console.log(`Step 1 — Found person for ${pd.company}: ${pd.person} (${pd.title})`);
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Person extraction failed:", e);
+    let finalLeads = leads;
+    if (cleanupRes.ok) {
+      const cleanupData = await cleanupRes.json();
+      const cleanupText = cleanupData.content?.[0]?.text?.trim();
+      if (cleanupText) {
+        try {
+          const cleaned = JSON.parse(cleanupText);
+          if (Array.isArray(cleaned)) finalLeads = cleaned;
+        } catch { /* use original leads */ }
       }
     }
 
-    // Clean up temp data
-    for (const lead of leads) {
-      delete lead._personSearchResults;
+    // Final validation
+    for (const lead of finalLeads) {
+      if (lead.email && !lead.email.includes("@")) lead.email = "";
+      if (lead.linkedin && !lead.linkedin.includes("linkedin.com/in")) lead.linkedin = "";
     }
 
-    // === Phase 2: Step 2 — Find person email ===
-    await Promise.all(leads.map((lead: any) => enrichPersonEmail(lead, TAVILY_API_KEY)));
+    console.log(`\nReturning ${finalLeads.length} leads`);
 
-    // === Phase 2: Step 3 — Find company email as fallback ===
-    await Promise.all(leads.map((lead: any) => enrichCompanyEmail(lead, TAVILY_API_KEY)));
-
-    // === Phase 2: LinkedIn enrichment (for all modes) ===
-    await Promise.all(leads.map((lead: any) => enrichLinkedIn(lead, TAVILY_API_KEY)));
-
-    // Final cleanup: ensure email field only contains valid emails
-    for (const lead of leads) {
-      if (lead.email && !lead.email.includes("@")) {
-        lead.email = "";
-      }
-    }
-
-    console.log(`Returning ${leads.length} leads`);
-
-    return new Response(JSON.stringify({ success: true, leads }), {
+    return new Response(JSON.stringify({ success: true, leads: finalLeads }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
