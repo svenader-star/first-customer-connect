@@ -288,7 +288,41 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
                         field === "website" || field === "title" ? "text-muted-foreground" : ""
                       }
                     >
-                      <EditableCell value={l[field]} onSave={(v) => onUpdateLead(l.id, field, v)} />
+                      <EditableCell
+                        value={l[field]}
+                        onSave={(v) => onUpdateLead(l.id, field, v)}
+                        renderDisplay={
+                          field === "website" || field === "linkedin"
+                            ? (val, onEdit) =>
+                                val ? (
+                                  <a
+                                    href={val.startsWith("http") ? val : `https://${val}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground transition-colors"
+                                    onDoubleClick={(e) => { e.preventDefault(); onEdit(); }}
+                                  >
+                                    {val}
+                                  </a>
+                                ) : (
+                                  <span onDoubleClick={onEdit}>{"\u00A0"}</span>
+                                )
+                            : field === "email"
+                            ? (val, onEdit) =>
+                                val ? (
+                                  <span
+                                    className="underline decoration-muted-foreground/40 underline-offset-2 cursor-pointer hover:text-foreground transition-colors"
+                                    onClick={() => { navigator.clipboard.writeText(val); toast.success("Email copied!", { duration: 2000 }); }}
+                                    onDoubleClick={onEdit}
+                                  >
+                                    {val}
+                                  </span>
+                                ) : (
+                                  <span onDoubleClick={onEdit}>{"\u00A0"}</span>
+                                )
+                            : undefined
+                        }
+                      />
                     </TableCell>
                   ))}
                   <TableCell className="text-center">
