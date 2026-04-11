@@ -21,7 +21,11 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
   const [spaces, setSpaces] = useState([
     "Space 1", "Space 2", "Space 3", "Space 4", "Space 5", "Space 6",
   ]);
-  const [active, setActive] = useState(0);
+  const [active, setActiveState] = useState(0);
+  const setActive = (i: number) => {
+    setActiveState(i);
+    onActiveSpaceChange?.(spaces[i]);
+  };
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
