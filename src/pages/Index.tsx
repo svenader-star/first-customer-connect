@@ -17,8 +17,12 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("setup");
   const [activeSpaceName, setActiveSpaceName] = useState("Space 1");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [foundLeads, setFoundLeads] = useState<any[] | null>(null);
 
-  const navigateToLeads = () => setActiveTab("leads");
+  const handleFoundLeads = (leads: any[]) => {
+    setFoundLeads(leads);
+    setActiveTab("leads");
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -61,8 +65,8 @@ export default function Index() {
             <OutreachTemplatesPanel onClose={() => setShowTemplates(false)} />
           ) : (
             <>
-              {activeTab === "setup" && <SetupScreen onFindLeads={navigateToLeads} />}
-              {activeTab === "leads" && <LeadsScreen />}
+              {activeTab === "setup" && <SetupScreen onFindLeads={handleFoundLeads} />}
+              {activeTab === "leads" && <LeadsScreen externalLeads={foundLeads} />}
               {activeTab === "outreach" && <OutreachScreen />}
             </>
           )}

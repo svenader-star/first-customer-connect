@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,10 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 interface SetupScreenProps {
-  onFindLeads: () => void;
+  onFindLeads: (leads: any[]) => void;
 }
 
 export function SetupScreen({ onFindLeads }: SetupScreenProps) {
@@ -25,12 +25,13 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
   const [company3, setCompany3] = useState("");
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
 
   const handleFindLeads = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("find-leads", {
+      const { data, error: fnError } = await supabase.functions.invoke("find-leads", {
         body: {
           icpDescription,
           exampleCompanies: [company1, company2, company3],
@@ -39,14 +40,13 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
         },
       });
 
-      if (error) throw error;
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
 
-      console.log("findLeads response:", data);
-      toast({ title: "Success", description: data.message });
-      onFindLeads();
+      onFindLeads(data.leads);
     } catch (err: any) {
       console.error("findLeads error:", err);
-      toast({ title: "Error", description: err.message || "Something went wrong", variant: "destructive" });
+      setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -96,8 +96,12 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
       </div>
 
       <Button size="lg" className="w-full mt-4" onClick={handleFindLeads} disabled={loading}>
-        {loading ? "Finding Leads…" : "Find Leads"}
+        {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</> : "Find Leads"}
       </Button>
+
+      {error && (
+        <p className="text-sm text-destructive mt-2">{error}</p>
+      )}
     </div>
   );
 }

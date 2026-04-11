@@ -144,9 +144,40 @@ interface ModalState {
   person: string;
 }
 
-export function LeadsScreen() {
+interface LeadsScreenProps {
+  externalLeads?: any[] | null;
+}
+
+export function LeadsScreen({ externalLeads }: LeadsScreenProps) {
   const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [hasLoadedExternal, setHasLoadedExternal] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
+
+  // When external leads arrive, replace mock data
+  useEffect(() => {
+    if (externalLeads && externalLeads.length > 0 && !hasLoadedExternal) {
+      const mapped: Lead[] = externalLeads.map((l: any, i: number) => ({
+        id: i + 1,
+        company: l.company || "",
+        website: l.website || "",
+        person: l.person || "",
+        title: l.title || "",
+        email: l.email || "",
+        linkedin: l.linkedin || "",
+        source: l.source || "tavily",
+        emailSubject: "",
+        emailBody: "",
+        linkedinDraft: "",
+        followupSubject: "",
+        followupBody: "",
+        emailSent: false,
+        linkedinSent: false,
+        followupSent: false,
+      }));
+      setLeads(mapped);
+      setHasLoadedExternal(true);
+    }
+  }, [externalLeads, hasLoadedExternal]);
 
   const toggle = (id: number, field: "emailSent" | "linkedinSent" | "followupSent") => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: !l[field] } : l)));
