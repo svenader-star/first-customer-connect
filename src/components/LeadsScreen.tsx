@@ -251,7 +251,23 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, setupForm, out
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.length === 0 ? (
+            {manualRow && (
+              <TableRow ref={manualRowRef} className="bg-muted/30">
+                {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
+                  <TableCell key={field}>
+                    <Input
+                      value={manualRow[field]}
+                      onChange={(e) => setManualRow((prev) => prev ? { ...prev, [field]: e.target.value } : prev)}
+                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                      className="h-7 text-sm px-2 py-0 border-border/50"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveManualRow(); }}
+                    />
+                  </TableCell>
+                ))}
+                <TableCell colSpan={6} />
+              </TableRow>
+            )}
+            {leads.length === 0 && !manualRow ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   No leads yet. Use the Setup tab to find leads.
