@@ -102,6 +102,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
   const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
   const manualRowRef = useRef<HTMLTableRowElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [noResultsBanner, setNoResultsBanner] = useState(false);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
@@ -176,8 +177,13 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      await onAppendLeads(data.leads);
-      toast.success(`Found ${data.leads.length} new leads!`);
+      if (!data.leads || data.leads.length === 0) {
+        setNoResultsBanner(true);
+        setTimeout(() => setNoResultsBanner(false), 4000);
+      } else {
+        await onAppendLeads(data.leads);
+        toast.success(`Found ${data.leads.length} new leads!`);
+      }
     } catch (err: any) {
       console.error("Add leads error:", err);
       toast.error(err.message || "Failed to find new leads");
@@ -250,6 +256,12 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {noResultsBanner && (
+        <div className="mb-3 px-4 py-3 rounded-lg bg-muted text-muted-foreground text-sm font-medium text-center border border-border">
+          Keine weiteren passenden Unternehmen gefunden
+        </div>
+      )}
 
       <div className="border border-border rounded-lg overflow-x-auto">
         <Table className="min-w-[1400px]">

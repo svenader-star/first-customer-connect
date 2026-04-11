@@ -85,7 +85,13 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
-        system: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — guess a realistic name if not found), title (string), email (string — guess format as firstname@company.com), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.${exclusionInstruction}`,
+        system: `You are a lead research assistant. Based on the search results provided, extract real companies and people and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string), title (string), email (string), linkedin (string — full LinkedIn URL if found, otherwise empty string), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.
+
+IMPORTANT: Only return companies that strictly match the ICP description provided. If a search result does not clearly match the ICP, exclude it entirely. It is better to return fewer results than to return irrelevant companies. Do not fill up the list with loosely related companies.
+
+For the person field: only use a name if you found it explicitly in the search results for that specific company. If no person name was found, return an empty string for person, title, linkedin, and email. Do NOT invent or guess a person's name.
+
+For the email field: only construct an email if you have a real person name from the search results. If person is empty, email must also be empty.${exclusionInstruction}`,
         messages: [
           {
             role: "user",
