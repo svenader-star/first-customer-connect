@@ -14,7 +14,7 @@ const BodySchema = z.object({
   companyType: z.enum(["startups", "kmu"]).optional().default("startups"),
 });
 
-async function tavilySearch(query: string, apiKey: string, depth = "advanced", maxResults = 5) {
+async function tavilySearch(query: string, apiKey: string, depth = "advanced", maxResults = 10) {
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -39,12 +39,16 @@ function buildQueries(companyType: string, icpDescription: string, exampleCompan
       `${icpDescription} Betrieb ${geography} site:gelbeseiten.de`,
       `${icpDescription} Unternehmen ${geography} site:kompass.com`,
       `${icpDescription} ${geography} Handwerk OR Betrieb OR Inhaber`,
+      `${icpDescription} Firma ${geography} Branchenbuch`,
+      `${icpDescription} ${geography} site:firmenwissen.de`,
     ];
   }
   return [
     `${role} ${icpDescription} companies ${geography}`,
     `similar companies to ${exampleCompanies[0]} ${geography}`,
     `${role} contact ${icpDescription} ${geography}`,
+    `${icpDescription} startups ${geography} site:crunchbase.com`,
+    `companies like ${exampleCompanies[1]} ${exampleCompanies[2]} ${geography}`,
   ];
 }
 
@@ -53,9 +57,9 @@ function buildSystemPrompt(companyType: string, exclusionInstruction: string): s
     ? `You are a lead research assistant specializing in German SMBs (KMU), Handwerk, and traditional businesses.`
     : `You are a lead research assistant.`;
 
-  return `${base} Based on the search results provided, extract real companies and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — leave empty, will be enriched later), title (string — leave empty, will be enriched later), email (string — leave empty, will be enriched later), linkedin (string — leave empty, will be enriched later), source (string — tavily). Return ONLY a valid JSON array with 5-8 leads, no explanation, no markdown, no code fences.
+  return `${base} Based on the search results provided, extract real companies and return a JSON array of leads. Each lead must have these exact fields: company (string), website (string), person (string — leave empty, will be enriched later), title (string — leave empty, will be enriched later), email (string — leave empty, will be enriched later), linkedin (string — leave empty, will be enriched later), source (string — tavily). Return ONLY a valid JSON array with up to 25 leads, no explanation, no markdown, no code fences.
 
-IMPORTANT: Only return companies that strictly match the ICP description provided. If a search result does not clearly match the ICP, exclude it entirely. It is better to return fewer results than to return irrelevant companies. Do not fill up the list with loosely related companies.
+IMPORTANT: Only return companies that strictly match the ICP description provided. If a search result does not clearly match the ICP, exclude it entirely. It is better to return fewer results than to return irrelevant companies. Do not fill up the list with loosely related companies. Extract up to 25 distinct companies. If fewer than 25 match, return only the ones that genuinely match — do not pad with irrelevant results.
 
 For person, title, email, and linkedin fields: set them all to empty strings. These will be populated in a separate enrichment step. Focus ONLY on identifying matching companies and their websites.${exclusionInstruction}`;
 }
@@ -192,11 +196,24 @@ Deno.serve(async (req) => {
       queries.map((q) => tavilySearch(q, TAVILY_API_KEY))
     );
 
-    const combinedResults = searchResults
+    const allResults = searchResults
       .flatMap((r) => r.results || [])
       .map((r: any) => ({ title: r.title, url: r.url, content: r.content }));
 
-    console.log(`Got ${combinedResults.length} total search results`);
+    // Deduplicate by URL domain to avoid the same company appearing multiple times
+    const seen = new Set<string>();
+    const combinedResults = allResults.filter((r: any) => {
+      try {
+        const domain = new URL(r.url).hostname.replace("www.", "");
+        if (seen.has(domain)) return false;
+        seen.add(domain);
+        return true;
+      } catch {
+        return true; // keep results with unparseable URLs
+      }
+    });
+
+    console.log(`Got ${allResults.length} total search results, ${combinedResults.length} after dedup`);
 
     const exclusionInstruction = excludeCompanies.length > 0
       ? `\n\nIMPORTANT: Do NOT return any of the following companies that have already been found: ${excludeCompanies.join(", ")}. Only return new companies that are not in this list.`
@@ -213,7 +230,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [
           {
