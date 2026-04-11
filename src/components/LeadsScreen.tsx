@@ -102,6 +102,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
   const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
   const manualRowRef = useRef<HTMLTableRowElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [noResultsBanner, setNoResultsBanner] = useState(false);
   const currentLead = modal ? leads.find((l) => l.id === modal.leadId) : null;
 
   const modalTitle = modal
