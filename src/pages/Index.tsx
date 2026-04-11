@@ -17,8 +17,12 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("setup");
   const [activeSpaceName, setActiveSpaceName] = useState("Space 1");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [foundLeads, setFoundLeads] = useState<any[] | null>(null);
 
-  const navigateToLeads = () => setActiveTab("leads");
+  const handleFoundLeads = (leads: any[]) => {
+    setFoundLeads(leads);
+    setActiveTab("leads");
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
