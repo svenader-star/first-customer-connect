@@ -11,21 +11,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { Space } from "@/hooks/useSpaces";
 
 interface AppSidebarProps {
+  spaces: Space[];
+  activeIndex: number;
+  onActiveSpaceChange: (index: number) => void;
+  onAddSpace: () => Promise<Space | null>;
+  onRenameSpace: (id: string, name: string) => Promise<void>;
+  onDeleteSpace: (id: string) => Promise<void>;
   onTemplatesClick: () => void;
-  onActiveSpaceChange?: (name: string) => void;
 }
 
-export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebarProps) {
-  const [spaces, setSpaces] = useState([
-    "Space 1",
-  ]);
-  const [active, setActiveState] = useState(0);
-  const setActive = (i: number) => {
-    setActiveState(i);
-    onActiveSpaceChange?.(spaces[i]);
-  };
+export function AppSidebar({
+  spaces,
+  activeIndex,
+  onActiveSpaceChange,
+  onAddSpace,
+  onRenameSpace,
+  onDeleteSpace,
+  onTemplatesClick,
+}: AppSidebarProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
@@ -38,27 +44,23 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
     }
   }, [editingIndex]);
 
-  const addSpace = () => {
-    setSpaces((s) => [...s, `Space ${s.length + 1}`]);
-  };
-
   const startRename = (i: number) => {
     setEditingIndex(i);
-    setEditValue(spaces[i]);
+    setEditValue(spaces[i].name);
   };
 
   const commitRename = () => {
     if (editingIndex !== null && editValue.trim()) {
-      setSpaces((s) => s.map((name, i) => (i === editingIndex ? editValue.trim() : name)));
+      onRenameSpace(spaces[editingIndex].id, editValue.trim());
     }
     setEditingIndex(null);
   };
 
   const confirmDelete = () => {
     if (deleteIndex !== null) {
-      setSpaces((s) => s.filter((_, i) => i !== deleteIndex));
-      if (active === deleteIndex) setActive(0);
-      else if (active > deleteIndex) setActive(active - 1);
+      onDeleteSpace(spaces[deleteIndex].id);
+      if (activeIndex === deleteIndex) onActiveSpaceChange(0);
+      else if (activeIndex > deleteIndex) onActiveSpaceChange(activeIndex - 1);
       setDeleteIndex(null);
     }
   };
@@ -74,8 +76,8 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
-        {spaces.map((name, i) => (
-          <div key={i} className="group relative flex items-center">
+        {spaces.map((space, i) => (
+          <div key={space.id} className="group relative flex items-center">
             {editingIndex === i ? (
               <input
                 ref={inputRef}
@@ -90,16 +92,16 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
               />
             ) : (
               <button
-                onClick={() => setActive(i)}
+                onClick={() => onActiveSpaceChange(i)}
                 onDoubleClick={() => startRename(i)}
                 onContextMenu={(e) => { e.preventDefault(); startRename(i); }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                  i === active
+                  i === activeIndex
                     ? "bg-primary text-primary-foreground font-medium"
                     : "text-foreground hover:bg-accent"
                 }`}
               >
-                {name}
+                {space.name}
               </button>
             )}
 
@@ -115,7 +117,7 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
         ))}
 
         <button
-          onClick={addSpace}
+          onClick={() => onAddSpace()}
           className="w-full text-left px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent flex items-center gap-2"
         >
           <Plus className="h-3.5 w-3.5" /> Add Space
@@ -133,7 +135,7 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Space</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the Space "{deleteIndex !== null ? spaces[deleteIndex] : ""}"?
+              Are you sure you want to delete the Space "{deleteIndex !== null ? spaces[deleteIndex]?.name : ""}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
