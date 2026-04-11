@@ -108,6 +108,7 @@ export type Database = {
       }
       space_setup: {
         Row: {
+          company_type: string
           email_goal: string
           email_task: string
           email_tone: string
@@ -124,6 +125,7 @@ export type Database = {
           space_id: string
         }
         Insert: {
+          company_type?: string
           email_goal?: string
           email_task?: string
           email_tone?: string
@@ -140,6 +142,7 @@ export type Database = {
           space_id: string
         }
         Update: {
+          company_type?: string
           email_goal?: string
           email_task?: string
           email_tone?: string
