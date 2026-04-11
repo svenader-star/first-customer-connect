@@ -13,19 +13,28 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 
-interface SetupScreenProps {
-  onFindLeads: (leads: any[]) => void;
+export interface SetupFormState {
+  geo: string;
+  icpDescription: string;
+  company1: string;
+  company2: string;
+  company3: string;
+  role: string;
 }
 
-export function SetupScreen({ onFindLeads }: SetupScreenProps) {
-  const [geo, setGeo] = useState("germany");
-  const [icpDescription, setIcpDescription] = useState("");
-  const [company1, setCompany1] = useState("");
-  const [company2, setCompany2] = useState("");
-  const [company3, setCompany3] = useState("");
-  const [role, setRole] = useState("");
+interface SetupScreenProps {
+  onFindLeads: (leads: any[]) => void;
+  formState: SetupFormState;
+  onFormChange: (state: SetupFormState) => void;
+}
+
+export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const update = (field: keyof SetupFormState, value: string) => {
+    onFormChange({ ...formState, ...{ [field]: value } });
+  };
 
   const handleFindLeads = async () => {
     setLoading(true);
@@ -33,10 +42,10 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
     try {
       const { data, error: fnError } = await supabase.functions.invoke("find-leads", {
         body: {
-          icpDescription,
-          exampleCompanies: [company1, company2, company3],
-          role,
-          geography: geo,
+          icpDescription: formState.icpDescription,
+          exampleCompanies: [formState.company1, formState.company2, formState.company3],
+          role: formState.role,
+          geography: formState.geo,
         },
       });
 
@@ -60,28 +69,28 @@ export function SetupScreen({ onFindLeads }: SetupScreenProps) {
           id="icp"
           placeholder="Describe your ideal customer profile — industry, size, pain points…"
           className="min-h-[140px] resize-y"
-          value={icpDescription}
-          onChange={(e) => setIcpDescription(e.target.value)}
+          value={formState.icpDescription}
+          onChange={(e) => update("icpDescription", e.target.value)}
         />
       </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Example Companies (add links of exemplary websites)</Label>
         <div className="space-y-2">
-          <Input placeholder="e.g. Personio" value={company1} onChange={(e) => setCompany1(e.target.value)} />
-          <Input placeholder="e.g. Celonis" value={company2} onChange={(e) => setCompany2(e.target.value)} />
-          <Input placeholder="e.g. DeepL" value={company3} onChange={(e) => setCompany3(e.target.value)} />
+          <Input placeholder="e.g. Personio" value={formState.company1} onChange={(e) => update("company1", e.target.value)} />
+          <Input placeholder="e.g. Celonis" value={formState.company2} onChange={(e) => update("company2", e.target.value)} />
+          <Input placeholder="e.g. DeepL" value={formState.company3} onChange={(e) => update("company3", e.target.value)} />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="role" className="text-sm font-medium">Role</Label>
-        <Input id="role" placeholder="e.g. Head of Sales" value={role} onChange={(e) => setRole(e.target.value)} />
+        <Input id="role" placeholder="e.g. Head of Sales" value={formState.role} onChange={(e) => update("role", e.target.value)} />
       </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Geography</Label>
-        <Select value={geo} onValueChange={setGeo}>
+        <Select value={formState.geo} onValueChange={(v) => update("geo", v)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
