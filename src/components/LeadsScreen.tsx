@@ -281,6 +281,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
           <TableBody>
             {manualRow && (
               <TableRow ref={manualRowRef} className="bg-muted/30">
+                <TableCell />
                 {(["company", "website", "person", "title", "email", "linkedin", "source"] as EditableField[]).map((field) => (
                   <TableCell key={field}>
                     <Input
