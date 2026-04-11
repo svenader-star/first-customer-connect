@@ -255,6 +255,14 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
         <Table className="min-w-[1400px]">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={leads.length > 0 && selectedIds.size === leads.length}
+                  onCheckedChange={(checked) => {
+                    setSelectedIds(checked ? new Set(leads.map((l) => l.id)) : new Set());
+                  }}
+                />
+              </TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Website</TableHead>
               <TableHead>Person</TableHead>
