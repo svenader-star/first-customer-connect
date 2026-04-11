@@ -93,7 +93,7 @@ export default function Index() {
                 <SetupScreen onFindLeads={handleFoundLeads} formState={setupForm} onFormChange={setSetupForm} />
               )}
               {activeTab === "leads" && (
-                <LeadsScreen leads={leads} onUpdateLead={updateLead} />
+                <LeadsScreen leads={leads} onUpdateLead={updateLead} onAddLead={addEmptyLead} />
               )}
               {activeTab === "outreach" && <OutreachScreen />}
             </>
