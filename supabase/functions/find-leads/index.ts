@@ -196,11 +196,24 @@ Deno.serve(async (req) => {
       queries.map((q) => tavilySearch(q, TAVILY_API_KEY))
     );
 
-    const combinedResults = searchResults
+    const allResults = searchResults
       .flatMap((r) => r.results || [])
       .map((r: any) => ({ title: r.title, url: r.url, content: r.content }));
 
-    console.log(`Got ${combinedResults.length} total search results`);
+    // Deduplicate by URL domain to avoid the same company appearing multiple times
+    const seen = new Set<string>();
+    const combinedResults = allResults.filter((r: any) => {
+      try {
+        const domain = new URL(r.url).hostname.replace("www.", "");
+        if (seen.has(domain)) return false;
+        seen.add(domain);
+        return true;
+      } catch {
+        return true; // keep results with unparseable URLs
+      }
+    });
+
+    console.log(`Got ${allResults.length} total search results, ${combinedResults.length} after dedup`);
 
     const exclusionInstruction = excludeCompanies.length > 0
       ? `\n\nIMPORTANT: Do NOT return any of the following companies that have already been found: ${excludeCompanies.join(", ")}. Only return new companies that are not in this list.`
@@ -217,7 +230,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [
           {
