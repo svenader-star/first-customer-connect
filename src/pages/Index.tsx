@@ -26,7 +26,7 @@ export default function Index() {
   const activeSpaceId = activeSpace?.id || null;
 
   const { form: setupForm, updateForm: setSetupForm } = useSpaceSetup(activeSpaceId);
-  const { leads, saveExternalLeads, updateLead } = useLeads(activeSpaceId);
+  const { leads, saveExternalLeads, addEmptyLead, updateLead } = useLeads(activeSpaceId);
 
   const handleFoundLeads = (rawLeads: any[]) => {
     saveExternalLeads(rawLeads);
@@ -93,7 +93,7 @@ export default function Index() {
                 <SetupScreen onFindLeads={handleFoundLeads} formState={setupForm} onFormChange={setSetupForm} />
               )}
               {activeTab === "leads" && (
-                <LeadsScreen leads={leads} onUpdateLead={updateLead} />
+                <LeadsScreen leads={leads} onUpdateLead={updateLead} onAddLead={addEmptyLead} />
               )}
               {activeTab === "outreach" && <OutreachScreen />}
             </>

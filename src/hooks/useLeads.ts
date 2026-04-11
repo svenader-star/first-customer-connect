@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface DbLead {
@@ -14,6 +14,11 @@ export interface DbLead {
   email_sent: boolean;
   linkedin_sent: boolean;
   followup_sent: boolean;
+  email_draft_subject: string;
+  email_draft_body: string;
+  linkedin_draft_body: string;
+  followup_draft_subject: string;
+  followup_draft_body: string;
 }
 
 export function useLeads(spaceId: string | null) {
@@ -36,7 +41,6 @@ export function useLeads(spaceId: string | null) {
   const saveExternalLeads = useCallback(
     async (externalLeads: any[]) => {
       if (!spaceId) return;
-      // Delete existing leads for this space
       await supabase.from("leads").delete().eq("space_id", spaceId);
 
       const rows = externalLeads.map((l: any) => ({
@@ -56,6 +60,16 @@ export function useLeads(spaceId: string | null) {
     [spaceId]
   );
 
+  const addEmptyLead = useCallback(async () => {
+    if (!spaceId) return;
+    const { data } = await supabase
+      .from("leads")
+      .insert({ space_id: spaceId })
+      .select()
+      .single();
+    if (data) setLeads((prev) => [...prev, data]);
+  }, [spaceId]);
+
   const updateLead = useCallback(
     async (id: string, field: keyof DbLead, value: string | boolean) => {
       setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
@@ -64,5 +78,5 @@ export function useLeads(spaceId: string | null) {
     []
   );
 
-  return { leads, loading, saveExternalLeads, updateLead };
+  return { leads, loading, saveExternalLeads, addEmptyLead, updateLead };
 }
