@@ -58,7 +58,7 @@ export function AppSidebar({ onTemplatesClick, onActiveSpaceChange }: AppSidebar
     if (deleteIndex !== null) {
       setSpaces((s) => s.filter((_, i) => i !== deleteIndex));
       if (active === deleteIndex) setActive(0);
-      else if (active > deleteIndex) setActive((a) => a - 1);
+      else if (active > deleteIndex) setActive(active - 1);
       setDeleteIndex(null);
     }
   };
