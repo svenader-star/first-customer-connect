@@ -299,10 +299,8 @@ ${leadsWithSearchData.map((l: any) => `Company: ${l.company}\nSearch results: ${
     // === Phase 2: Step 3 — Find company email as fallback ===
     await Promise.all(leads.map((lead: any) => enrichCompanyEmail(lead, TAVILY_API_KEY)));
 
-    // === Phase 2: LinkedIn enrichment (for startups) ===
-    if (companyType !== "kmu") {
-      await Promise.all(leads.map((lead: any) => enrichLinkedIn(lead, TAVILY_API_KEY)));
-    }
+    // === Phase 2: LinkedIn enrichment (for all modes) ===
+    await Promise.all(leads.map((lead: any) => enrichLinkedIn(lead, TAVILY_API_KEY)));
 
     // Final cleanup: ensure email field only contains valid emails
     for (const lead of leads) {
