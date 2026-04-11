@@ -38,9 +38,9 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --sidebar-bg: 220 14% 97%;
-    --sidebar-active: 220 80% 50%;
-    --tab-active: 220 80% 50%;
+    --sidebar-bg: 220 6% 97%;
+    --sidebar-active: 220 10% 16%;
+    --tab-active: 220 10% 16%;
     --sidebar-background: 0 0% 98%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
