@@ -121,10 +121,19 @@ async function discoverCompaniesGooglePlaces(
   excludeCompanies: string[],
   anthropicKey: string,
   placesApiKey: string,
-): Promise<{ company: string; website: string; source: string }[]> {
+): Promise<{ companies: { company: string; website: string; source: string }[]; errors: string[] }> {
+  const errors: string[] = [];
+  
   // Extract business type
-  const businessType = await extractBusinessType(icpDescription, anthropicKey);
-  console.log(`Google Places — Extracted business type: "${businessType}"`);
+  let businessType: string;
+  try {
+    businessType = await extractBusinessType(icpDescription, anthropicKey);
+    console.log(`Google Places — Extracted business type: "${businessType}"`);
+  } catch (e) {
+    const msg = `Business type extraction failed: ${e}`;
+    console.error(msg);
+    return { companies: [], errors: [msg] };
+  }
 
   // Run 3 search queries with variations
   const queries = [
@@ -137,7 +146,8 @@ async function discoverCompaniesGooglePlaces(
   const allPlaces: any[] = [];
   for (const q of queries) {
     console.log(`  Search: "${q}"`);
-    const results = await googlePlacesTextSearch(q, placesApiKey);
+    const { results, error } = await googlePlacesTextSearch(q, placesApiKey);
+    if (error) errors.push(error);
     console.log(`  Got ${results.length} results`);
     allPlaces.push(...results);
   }
@@ -164,7 +174,6 @@ async function discoverCompaniesGooglePlaces(
     if (place.website) {
       website = place.website;
     } else if (place.place_id) {
-      // Fetch Place Details to get website
       console.log(`  Fetching details for "${place.name}" (no website in text search)`);
       const details = await googlePlaceDetails(place.place_id, placesApiKey);
       if (details?.website) {
@@ -172,7 +181,6 @@ async function discoverCompaniesGooglePlaces(
       }
     }
 
-    // Clean website to just domain
     if (website) {
       try {
         const parsed = new URL(website);
@@ -187,7 +195,7 @@ async function discoverCompaniesGooglePlaces(
     });
   }
 
-  return companies;
+  return { companies, errors };
 }
 
 // Step 2a: Find company website (Tavily fallback, used for Startup mode)
