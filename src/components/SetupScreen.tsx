@@ -4,13 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SetupFormState {
@@ -115,18 +108,7 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Geography</Label>
-        <Select value={formState.geo} onValueChange={(v) => update("geo", v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="germany">Germany</SelectItem>
-            <SelectItem value="austria">Austria</SelectItem>
-            <SelectItem value="switzerland">Switzerland</SelectItem>
-            <SelectItem value="usa">USA</SelectItem>
-            <SelectItem value="uk">UK</SelectItem>
-          </SelectContent>
-        </Select>
+        <Input value={formState.geo} onChange={(e) => update("geo", e.target.value)} placeholder="e.g. München" />
       </div>
 
       <Button size="lg" className="w-full mt-4" onClick={handleFindLeads} disabled={loading}>
