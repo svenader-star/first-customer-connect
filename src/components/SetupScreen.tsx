@@ -25,6 +25,7 @@ interface SetupScreenProps {
 export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<string[] | null>(null);
 
   const update = (field: keyof SetupFormState, value: string) => {
     onFormChange({ ...formState, ...{ [field]: value } });
@@ -33,6 +34,7 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
   const handleFindLeads = async () => {
     setLoading(true);
     setError(null);
+    setDiagnostics(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("find-leads", {
         body: {
@@ -46,6 +48,10 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
 
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
+
+      if (data?.diagnostics) {
+        setDiagnostics(data.diagnostics);
+      }
 
       onFindLeads(data.leads);
     } catch (err: any) {
