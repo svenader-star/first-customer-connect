@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 export interface SetupFormState {
   companyType: string;
@@ -26,6 +25,7 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[] | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const update = (field: keyof SetupFormState, value: string) => {
     onFormChange({ ...formState, ...{ [field]: value } });
@@ -35,30 +35,75 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
     setLoading(true);
     setError(null);
     setDiagnostics(null);
+    setProgress("Starting search...");
+
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("find-leads", {
-        body: {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/find-leads`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({
           icpDescription: formState.icpDescription,
           exampleCompanies: [formState.company1, formState.company2, formState.company3],
           role: formState.role,
           geography: formState.geo,
           companyType: formState.companyType || "startups",
-        },
+        }),
       });
 
-      if (fnError) throw fnError;
-      if (data?.error) throw new Error(data.error);
-
-      if (data?.diagnostics) {
-        setDiagnostics(data.diagnostics);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Edge function error: ${text}`);
       }
 
-      onFindLeads(data.leads);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === "progress") {
+                setProgress(data.message);
+              } else if (data.type === "result") {
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+                if (data.diagnostics) {
+                  setDiagnostics(data.diagnostics);
+                }
+                onFindLeads(data.leads);
+              }
+            } catch (e: any) {
+              if (e.message && !e.message.includes("Unexpected")) throw e;
+            }
+          }
+        }
+      }
     } catch (err: any) {
       console.error("findLeads error:", err);
       setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -120,6 +165,13 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
       <Button size="lg" className="w-full mt-4" onClick={handleFindLeads} disabled={loading}>
         {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Leads…</> : "Find Leads"}
       </Button>
+
+      {progress && (
+        <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          <p className="text-sm text-primary font-medium">{progress}</p>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-destructive mt-2">{error}</p>
