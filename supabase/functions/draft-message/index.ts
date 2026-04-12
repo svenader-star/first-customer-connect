@@ -10,12 +10,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { lead, draftType, outreachSettings, templates } = await req.json();
+    const { lead, draftType, outreachSettings, templates, language } = await req.json();
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
-    const systemPrompt = `You are an expert at writing short, personalized outreach messages for founders doing early-stage customer discovery. Use the provided Task, Goal, and Tone as your brief. Use the provided example templates as style and format references. Write a personalized message for the specific lead. Return ONLY a valid JSON object — no markdown, no explanation, no code fences. For email and followup return: subjectLine (string) and body (string). For linkedin return: message (string, max 300 characters for connection requests).`;
+    const langInstruction = language ? `Write the message in the following language: ${language}.` : "Write the message in German.";
+    const systemPrompt = `You are an expert at writing short, personalized outreach messages for founders doing early-stage customer discovery. Use the provided Task, Goal, and Tone as your brief. Use the provided example templates as style and format references. Write a personalized message for the specific lead. ${langInstruction} Return ONLY a valid JSON object — no markdown, no explanation, no code fences. For email and followup return: subjectLine (string) and body (string). For linkedin return: message (string, max 300 characters for connection requests).`;
 
     const templateExamples = (templates || [])
       .map((t: any) => {
