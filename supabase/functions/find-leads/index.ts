@@ -61,16 +61,29 @@ function extractUrl(results: any[], companyName: string): string {
 }
 
 // === Google Places API functions ===
-async function googlePlacesTextSearch(query: string, apiKey: string): Promise<any[]> {
+async function googlePlacesTextSearch(query: string, apiKey: string): Promise<{ results: any[]; error?: string }> {
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
+  console.log(`  [Google Places] Request URL: ${url.replace(apiKey, "***")}`);
   const res = await fetch(url);
+  const rawText = await res.text();
+  console.log(`  [Google Places] HTTP ${res.status}, response length: ${rawText.length}`);
+  console.log(`  [Google Places] Response preview: ${rawText.substring(0, 500)}`);
   if (!res.ok) {
-    const text = await res.text();
-    console.warn(`Google Places Text Search error [${res.status}]: ${text}`);
-    return [];
+    console.error(`  [Google Places] HTTP ERROR ${res.status}: ${rawText}`);
+    return { results: [], error: `Google Places HTTP ${res.status}: ${rawText.substring(0, 200)}` };
   }
-  const data = await res.json();
-  return data.results || [];
+  try {
+    const data = JSON.parse(rawText);
+    if (data.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      console.error(`  [Google Places] API status: ${data.status}, error_message: ${data.error_message || "none"}`);
+      return { results: [], error: `Google Places API status: ${data.status} — ${data.error_message || "no details"}` };
+    }
+    console.log(`  [Google Places] status: ${data.status}, results count: ${(data.results || []).length}`);
+    return { results: data.results || [] };
+  } catch (e) {
+    console.error(`  [Google Places] JSON parse error: ${e}`);
+    return { results: [], error: `Google Places response not valid JSON` };
+  }
 }
 
 async function googlePlaceDetails(placeId: string, apiKey: string): Promise<any> {
