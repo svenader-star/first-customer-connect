@@ -340,16 +340,126 @@ Deno.serve(async (req) => {
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     let leads: any[];
+    const diagnostics: string[] = [];
 
     if (companyType === "kmu") {
-      // === KMU MODE: Google Places for company discovery ===
+      // === KMU MODE: Google Places for company discovery, with Tavily fallback ===
       const GOOGLE_PLACES_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY");
-      if (!GOOGLE_PLACES_API_KEY) throw new Error("GOOGLE_PLACES_API_KEY is not configured");
+      
+      let companies: { company: string; website: string; source: string }[] = [];
 
-      console.log("=== KMU Mode — Using Google Places API ===");
-      const companies = await discoverCompaniesGooglePlaces(
-        icpDescription, geography, excludeCompanies, ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY
-      );
+      if (GOOGLE_PLACES_API_KEY) {
+        console.log("=== KMU Mode — Trying Google Places API ===");
+        try {
+          const placesResult = await discoverCompaniesGooglePlaces(
+            icpDescription, geography, excludeCompanies, ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY
+          );
+          companies = placesResult.companies;
+          if (placesResult.errors.length > 0) {
+            diagnostics.push(...placesResult.errors.map(e => `[Google Places] ${e}`));
+          }
+          console.log(`Google Places returned ${companies.length} companies`);
+        } catch (e) {
+          const msg = `Google Places failed entirely: ${e instanceof Error ? e.message : e}`;
+          console.error(msg);
+          diagnostics.push(msg);
+        }
+      } else {
+        diagnostics.push("GOOGLE_PLACES_API_KEY not configured — skipping Google Places");
+        console.warn("GOOGLE_PLACES_API_KEY not configured — skipping Google Places");
+      }
+
+      // FALLBACK: If Google Places returned 0 results, use Tavily KMU queries
+      if (companies.length === 0) {
+        console.log("=== KMU Fallback — Using Tavily for company discovery ===");
+        diagnostics.push("Falling back to Tavily for KMU company discovery");
+        
+        const kmuQueries = [
+          `${icpDescription} ${geography} site:wlw.de`,
+          `${icpDescription} Betrieb ${geography} site:gelbeseiten.de`,
+          `${icpDescription} Unternehmen ${geography} site:kompass.com`,
+          `${icpDescription} ${geography} Handwerk OR Betrieb OR Inhaber`,
+          `${icpDescription} Firma ${geography} Branchenbuch`,
+          `${icpDescription} ${geography} site:firmenwissen.de`,
+        ];
+
+        const searchResults = await Promise.all(kmuQueries.map(q => {
+          console.log(`  [Tavily KMU] Query: "${q}"`);
+          return tavilySearch(q, TAVILY_API_KEY).catch(e => {
+            const msg = `Tavily query failed: "${q}" — ${e}`;
+            console.error(msg);
+            diagnostics.push(msg);
+            return { results: [] };
+          });
+        }));
+
+        const allResults = searchResults.flatMap(r => r.results || []).map((r: any) => ({
+          title: r.title, url: r.url, content: r.content,
+        }));
+        console.log(`  [Tavily KMU] Total results: ${allResults.length}`);
+
+        const seen = new Set<string>();
+        const dedupedResults = allResults.filter((r: any) => {
+          try {
+            const domain = new URL(r.url).hostname.replace("www.", "");
+            if (seen.has(domain)) return false;
+            seen.add(domain);
+            return true;
+          } catch { return true; }
+        });
+
+        const exclusionInstruction = excludeCompanies.length > 0
+          ? `\n\nDo NOT return any of these companies: ${excludeCompanies.join(", ")}.`
+          : "";
+
+        const companyExtractionRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 2000,
+            system: `Extract company names from search results that strictly match this ICP: "${icpDescription}". Return ONLY a JSON array of unique company name strings (up to 25). No explanation, no markdown. Only include companies that clearly match the ICP.${exclusionInstruction}`,
+            messages: [{
+              role: "user",
+              content: `Company type: kmu. Geography: ${geography}.\n\nSearch results:\n${JSON.stringify(dedupedResults, null, 2)}`,
+            }],
+            temperature: 0.2,
+          }),
+        });
+
+        if (companyExtractionRes.ok) {
+          const companyData = await companyExtractionRes.json();
+          const companyListText = companyData.content?.[0]?.text?.trim();
+          if (companyListText) {
+            try {
+              const companyNames: string[] = JSON.parse(companyListText);
+              if (Array.isArray(companyNames)) {
+                const seenNames = new Set<string>();
+                companies = companyNames
+                  .filter(name => {
+                    const key = name.toLowerCase().trim();
+                    if (seenNames.has(key)) return false;
+                    seenNames.add(key);
+                    return true;
+                  })
+                  .map(name => ({ company: name, website: "", source: "tavily" }));
+              }
+            } catch (e) {
+              diagnostics.push(`Claude company extraction parse error: ${e}`);
+            }
+          }
+        } else {
+          const text = await companyExtractionRes.text();
+          diagnostics.push(`Claude company extraction failed: HTTP ${companyExtractionRes.status}`);
+          console.error(`Claude error: ${text}`);
+        }
+
+        console.log(`  [Tavily KMU Fallback] ${companies.length} companies extracted`);
+      }
 
       leads = companies.map(c => ({
         company: c.company,
@@ -365,6 +475,11 @@ Deno.serve(async (req) => {
       for (let i = 0; i < leads.length; i++) {
         const lead = leads[i];
         console.log(`\nEnriching ${i + 1}/${leads.length}: ${lead.company}`);
+
+        // If from Tavily fallback, also enrich website
+        if (!lead.website) {
+          await enrichWebsite(lead, geography, TAVILY_API_KEY);
+        }
 
         // 2b: Person
         await enrichPerson(lead, role, geography, TAVILY_API_KEY, ANTHROPIC_API_KEY);
