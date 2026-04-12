@@ -79,6 +79,11 @@ function CopyButton({ getText }: { getText: () => string }) {
 type EditableField = "company" | "website" | "person" | "title" | "email" | "linkedin" | "source";
 type ModalType = "email" | "linkedin" | "followup";
 
+const LANGUAGES = [
+  { code: "de", flag: "🇩🇪", name: "Deutsch" },
+  { code: "en", flag: "🇺🇸", name: "English (US)" },
+] as const;
+
 interface ModalState {
   leadId: string;
   type: ModalType;
@@ -98,6 +103,7 @@ interface LeadsScreenProps {
 export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads, setupForm, outreachSettings, templates }: LeadsScreenProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [language, setLanguage] = useState<typeof LANGUAGES[number]>(LANGUAGES[0]);
   const [findingLeads, setFindingLeads] = useState(false);
   const [manualRow, setManualRow] = useState<Record<EditableField, string> | null>(null);
   const manualRowRef = useRef<HTMLTableRowElement>(null);
@@ -134,6 +140,7 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
           draftType: modal.type,
           outreachSettings: outreach,
           templates,
+          language: language.name,
         },
       });
 
@@ -407,19 +414,35 @@ export function LeadsScreen({ leads, onUpdateLead, onAppendLeads, onDeleteLeads,
             <DialogTitle className="text-foreground">{modalTitle}</DialogTitle>
           </DialogHeader>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
-            ) : (
-              <><Sparkles className="h-4 w-4 mr-2" /> Generate with AI</>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
+              ) : (
+                <><Sparkles className="h-4 w-4 mr-2" /> Generate with AI</>
+              )}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-12 px-0 text-lg">
+                  {language.flag}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {LANGUAGES.map((lang) => (
+                  <DropdownMenuItem key={lang.code} onClick={() => setLanguage(lang)}>
+                    <span className="mr-2">{lang.flag}</span> {lang.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           {currentLead && modal?.type === "email" && (
             <div className="space-y-4 mt-2">
