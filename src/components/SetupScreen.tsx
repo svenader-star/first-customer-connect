@@ -124,6 +124,14 @@ export function SetupScreen({ onFindLeads, formState, onFormChange }: SetupScree
       {error && (
         <p className="text-sm text-destructive mt-2">{error}</p>
       )}
+      {diagnostics && diagnostics.length > 0 && (
+        <div className="mt-2 p-3 bg-muted rounded-md text-xs space-y-1">
+          <p className="font-medium text-muted-foreground">Diagnostics:</p>
+          {diagnostics.map((d, i) => (
+            <p key={i} className="text-muted-foreground">• {d}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
