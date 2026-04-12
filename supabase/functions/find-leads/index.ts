@@ -603,9 +603,14 @@ Deno.serve(async (req) => {
       if (lead.linkedin && !lead.linkedin.includes("linkedin.com/in")) lead.linkedin = "";
     }
 
-    console.log(`\nReturning ${finalLeads.length} leads`);
+    console.log(`\nReturning ${finalLeads.length} leads, ${diagnostics.length} diagnostics`);
+    if (diagnostics.length > 0) console.log(`Diagnostics:\n${diagnostics.join("\n")}`);
 
-    return new Response(JSON.stringify({ success: true, leads: finalLeads }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      leads: finalLeads,
+      diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
